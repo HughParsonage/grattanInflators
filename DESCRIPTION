@@ -1,13 +1,18 @@
-Package: rpkg
-Title: Title
-Version: 0.0.0
+Package: grattanInflators
+Title: Inflators for Australian Policy Analysis
+Version: 0.1.0
 Authors@R: 
     person(given = "Hugh",
            family = "Parsonage",
            role = c("aut", "cre"),
            email = "hugh.parsonage@gmail.com")
-Description: ..
+Description: Using Australian Bureau of Statistics indices, provides functions
+    that convert historical, nominal statistics to real, contemporary values, 
+    and assists with forecasting.
 License: GPL-2
 Encoding: UTF-8
-
-
+Imports: 
+    data.table,
+    fy,
+    utils
+RoxygenNote: 7.1.1
