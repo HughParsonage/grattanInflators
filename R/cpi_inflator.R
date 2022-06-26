@@ -3,11 +3,16 @@
 #' @param from,to Times for which the inflator is desired.
 #' @export
 
-cpi_inflator <- function(from, to) {
+cpi_inflator <- function(from, to,
+                         fy_month = 1L,
+                         .from_constant_form = FALSE,
+                         .to_constant_form = FALSE) {
   update_extdata2c()
   .Call("C_cpi_inflator",
-        from,
-        to,
+        ensure_date(from),
+        ensure_date(to),
+        supported_classes(class(from)),
+        supported_classes(class(to)),
         PACKAGE = packageName())
 }
 
@@ -43,13 +48,12 @@ ensure_date <- function(x) {
     return(x)
   }
   if (inherits(x, "fy")) {
-    return(as.IDate(fy::fy2date(x)))
+    return(fy::fy2yr(x))
   }
   if (inherits(x, "Date")) {
     return(as.IDate(x))
   }
-  .Call("C_ensure_date", x, PACKAGE = packageName())
-
+  x
 }
 
 
@@ -66,5 +70,9 @@ cpi_inflator2 <- function(from, to) {
   from_value <- CPI_I$value[from_i]
   to_value <- CPI_I$value[to_i]
   to_value / from_value
+}
+
+do_print_Q10_CPI_SINCE_1948 <- function() {
+  .Call("print_Q10_CPI_SINCE_1948", PACKAGE = packageName())
 }
 

@@ -6,7 +6,7 @@ static uint16_t Q10_CPI_SINCE_1948[CPI_SIZE]; // the values
 static int nCPI_QUARTERS; // the number of quarters
 static Date CPI_SINCE_1948_Dates[CPI_SIZE]; // the array of dates
 #define CPI_FIRST_QUARTER_1948 3
-static bool cpi_prepared = false;
+bool cpi_prepared = false;
 
 SEXP C_cpi_prepared() {
   return ScalarLogical(cpi_prepared);
@@ -26,13 +26,34 @@ int Date2CPI_idx(Date x) {
   return i + 2 + x.month / 3;
 }
 
+int YearMonth2CPI_idx(YearMonth x) {
+  if (x.year == 0) {
+    return x.month <= 9 ? 0 : 1;
+  }
+  int yr = x.year + 1948;
+  int i = yr - 1949;
+  i *= 4;
+  return i + 2 + x.month / 3;
+}
+
+int Year2CPI_idx(int yr) {
+  unsigned int o = 4 * (yr - 1949) + 2;
+  return o < 399 ? o : 399;
+}
+
 static double cpi_Date_inflator(Date from, Date to) {
   uint16_t y_from = Q10_CPI_SINCE_1948[Date2CPI_idx(from)];
   uint16_t y_to = Q10_CPI_SINCE_1948[Date2CPI_idx(to)];
   return ((double)y_to) / ((double)y_from);
 }
 
-static void update_cpi(const double * xp, const bool verbose, int N) {
+static double cpi_YearMonth_inflator(YearMonth from, YearMonth to) {
+  uint16_t y_from = Q10_CPI_SINCE_1948[YearMonth2CPI_idx(from)];
+  uint16_t y_to = Q10_CPI_SINCE_1948[YearMonth2CPI_idx(to)];
+  return ((double)y_to) / ((double)y_from);
+}
+
+void update_cpi(const double * xp, const bool verbose, int N) {
   for (int i = 0; i < CPI_SIZE; ++i) {
     Q10_CPI_SINCE_1948[i] = 10 * xp[i];
   }
@@ -74,14 +95,63 @@ SEXP C_update_cpi(SEXP x, SEXP Verbose) {
   return x;
 }
 
-SEXP C_cpi_inflator(SEXP From, SEXP To) {
+SEXP print_Q10_CPI_SINCE_1948() {
+  for (int i = 0; i < 300; ++i) {
+    Rprintf("%d, ", Q10_CPI_SINCE_1948[i]);
+    if ((i % 8) == 0) {
+      Rprintf("\n");
+    }
+  }
+  return R_NilValue;
+}
+
+static void fy_cpi_inflator(double * restrict ansp,
+                            const int * from,
+                            R_xlen_t N_from,
+                            const int * to,
+                            R_xlen_t N_to,
+                            int nThread) {
+  R_xlen_t N = N_from >= N_to ? N_from : N_to;
+  if (N_from == N_to) {
+    FORLOOP({
+      double a = Q10_CPI_SINCE_1948[Year2CPI_idx(from[i])];
+      double b = Q10_CPI_SINCE_1948[Year2CPI_idx(to[i])];
+      ansp[i] = b / a;
+    })
+  } else if (N_from == 1) {
+    double a = Q10_CPI_SINCE_1948[Year2CPI_idx(from[0])];
+    FORLOOP({
+      double b = Q10_CPI_SINCE_1948[Year2CPI_idx(to[i])];
+      ansp[i] = b / a;
+    })
+  } else {
+    double b = Q10_CPI_SINCE_1948[Year2CPI_idx(to[0])];
+    FORLOOP({
+      double a = Q10_CPI_SINCE_1948[Year2CPI_idx(from[i])];
+      ansp[i] = b / a;
+    })
+  }
+}
+
+SEXP C_cpi_inflator(SEXP From, SEXP To, SEXP FromClass, SEXP ToClass) {
   prohibit_vector_recyling(From, To, "from", "to");
   R_xlen_t N_from = xlength(From);
   R_xlen_t N_to = xlength(To);
   R_xlen_t N = N_from >= N_to ? N_from : N_to;
 
-  Date * FromDate = malloc(sizeof(Date) * N_from);
-  Date * ToDate = malloc(sizeof(Date) * N_to);
+  int from_class = asInteger(FromClass);
+  int to_class = asInteger(ToClass);
+  if (from_class == 1 && to_class == 1) {
+    SEXP ans = PROTECT(allocVector(REALSXP, N));
+    double * restrict ansp = REAL(ans);
+    fy_cpi_inflator(ansp, INTEGER(From), xlength(From), INTEGER(To), xlength(To), 1);
+    UNPROTECT(1);
+    return ans;
+  }
+
+
+  YearMonth * FromDate = malloc(sizeof(YearMonth) * N_from);
+  YearMonth * ToDate = malloc(sizeof(YearMonth) * N_to);
   if (FromDate == NULL || ToDate == NULL) {
     free(FromDate);
     free(ToDate);
@@ -91,23 +161,23 @@ SEXP C_cpi_inflator(SEXP From, SEXP To) {
   int MonthFY = 6;
   SEXP ans = PROTECT(allocVector(REALSXP, N));
   double * restrict ansp = REAL(ans);
-  if (isString(From) && isString(To)) {
-    const SEXP * xp = STRING_PTR(From);
-    const SEXP * yp = STRING_PTR(To);
-    character2dates(FromDate, N_from, nThread, MonthFY, xp);
-    character2dates(ToDate, N_to, nThread, MonthFY, yp);
+  SEXP2YearMonth(FromDate, From, true, true, MonthFY, false, "from", nThread);
+  SEXP2YearMonth(ToDate, To, true, true, MonthFY, false, "to", nThread);
 
+  if (N_from == N_to) {
     FORLOOP({
-      if (N_from == N_to) {
-        ansp[i] = cpi_Date_inflator(FromDate[i], ToDate[i]);
-      } else {
-        if (N_from == 1) {
-          ansp[i] = cpi_Date_inflator(FromDate[0], ToDate[i]);
-        } else {
-          ansp[i] = cpi_Date_inflator(FromDate[i], ToDate[0]);
-        }
-      }
+      ansp[i] = cpi_YearMonth_inflator(FromDate[i], ToDate[i]);
     })
+  } else if (N_from == 1) {
+    FORLOOP({
+      ansp[i] = cpi_YearMonth_inflator(FromDate[0], ToDate[i]);
+    })
+  } else if (N_to == 1) {
+    FORLOOP({
+      ansp[i] = cpi_YearMonth_inflator(FromDate[i], ToDate[0]);
+    })
+  } else {
+    warning("N_from/N_to prohibit vector recyling."); // # nocov
   }
 
   free(FromDate);
@@ -115,3 +185,5 @@ SEXP C_cpi_inflator(SEXP From, SEXP To) {
   UNPROTECT(1);
   return ans;
 }
+
+

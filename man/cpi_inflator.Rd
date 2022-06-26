@@ -4,7 +4,13 @@
 \alias{cpi_inflator}
 \title{CPI inflator}
 \usage{
-cpi_inflator(from, to)
+cpi_inflator(
+  from,
+  to,
+  fy_month = 1L,
+  .from_constant_form = FALSE,
+  .to_constant_form = FALSE
+)
 }
 \arguments{
 \item{from, to}{Times for which the inflator is desired.}
