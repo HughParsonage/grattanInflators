@@ -4,40 +4,40 @@
 #' @export
 
 cpi_inflator <- function(from, to,
+                         adjustment = c("seasonal", "original", "trimmed.mean"),
                          fy_month = 1L,
                          .from_constant_form = FALSE,
                          .to_constant_form = FALSE) {
-  update_extdata2c()
-  .Call("C_cpi_inflator",
+  adjustment <- match.arg(adjustment)
+  Index <- GET_SERIES(cpi2series_id(adjustment))
+  Inflate(from, to, Index)
+}
+
+cpi2series_id <- function(adjustment) {
+  switch(adjustment,
+         original = "A2325846C",
+         seasonal = "A3604506F",
+         trimmed.mean = "A3604509L")
+
+}
+
+Inflate <- function(from, to,
+                    index,
+                    nThread = getOption("grattanInflators.nThread", 1L)) {
+  index_min_date <- min(as.integer(as.IDate(.subset2(index, "date"))), na.rm = TRUE)
+  .Call("C_Inflate",
         ensure_date(from),
         ensure_date(to),
+        .subset2(index, "value"),
+        index_min_date,
+        4L,
+        NULL,
         supported_classes(class(from)),
         supported_classes(class(to)),
+        nThread,
         PACKAGE = packageName())
 }
 
-extdata_cpi_tsv <- function() {
-  system.file("extdata", "cpi.tsv", package = packageName())
-}
-
-download_save_cpi_data <- function() {
-  # https://github.com/HughParsonage/ABS-Catalogue/raw/master/data/series_id/A232/A2323355X.tsv
-  CPI_Data <- fread("https://github.com/HughParsonage/ABS-Catalogue/raw/master/data/series_id/A232/A2325846C.tsv")
-  if (dir.exists("inst/extdata")) {
-    fwrite(CPI_Data, "inst/extdata/cpi.tsv", sep = "\t")
-  } else if (file.exists(extdata_cpi_tsv())) {
-    fwrite(CPI_Data, extdata_cpi_tsv(), sep = "\t")
-  }
-}
-
-update_extdata2c <- function(verbose = FALSE, force = FALSE) {
-  if (isFALSE(force) && .Call("C_cpi_prepared", PACKAGE = packageName())) {
-    return(invisible(NULL))
-  }
-  stopifnot(file.exists(extdata_cpi_tsv()))
-  CPI_Data <- fread(extdata_cpi_tsv(), sep = "\t")
-  invisible(.Call("C_update_cpi", .subset2(CPI_Data, "value"), verbose, PACKAGE = packageName()))
-}
 
 supported_classes <- function(x) {
   match(x, c("fy", "Date", "IDate", "integer", "character"), nomatch = 0L)
@@ -57,9 +57,7 @@ ensure_date <- function(x) {
 }
 
 
-print_IDATE <- function(x) {
-  .Call("C_print_IDATE", x, PACKAGE = packageName())
-}
+
 
 cpi_inflator2 <- function(from, to) {
   from_i <- as.integer(as.IDate(from)) - as.integer(as.IDate("1948-09-01"))
@@ -72,7 +70,4 @@ cpi_inflator2 <- function(from, to) {
   to_value / from_value
 }
 
-do_print_Q10_CPI_SINCE_1948 <- function() {
-  .Call("print_Q10_CPI_SINCE_1948", PACKAGE = packageName())
-}
 

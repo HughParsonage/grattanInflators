@@ -22,7 +22,7 @@ const static int IDAY_2021 = 18628;
 #define LOCATION_IDAY_2020_IN_IDAYS 72
 
 bool is_supported_IDate(unsigned int x) {
-  unsigned int ux = (x + MIN_IDATE);
+  unsigned int ux = (x + NEG_MIN_IDATE);
   return ux < RANGE_IDATE;
 }
 
@@ -63,6 +63,15 @@ static bool starts_with_yyyy(const char * x) {
   return (x[0] == '1' || x[0] == '2') && isdigit(x[1]) && isdigit(x[2]) && isdigit(x[3]);
 }
 
+int string2year(const char * x) {
+  // no check on whether string length is adequate, or starts with digits
+  int year = 0;
+  year += (x[1] == '9') ? 1900 : 2000;
+  year += 10 * (x[2] - '0');
+  year += x[3] - '0';
+  return year - 1948;
+}
+
 static bool is_valid_month(char u, char v) {
   if (u < '0' || u > '3') {
     return false;
@@ -74,6 +83,20 @@ static bool is_valid_month(char u, char v) {
     return v == '0' || v == '1';
   }
   return true;
+}
+
+static int validate_fy(const char * x, int n) {
+  if (n != 7) {
+    return 0;
+  }
+  int o = 19;
+  o += x[0] - '1';
+  o *= 10;
+  o += x[2] - '0';
+  o *= 10;
+  o += x[3] - '0';
+  o *= 10;
+  return o;
 }
 
 static bool is_valid_fy_quartet(char u, char v, char x, char y) {
@@ -116,6 +139,15 @@ YearMonth NA_YM() {
   O.month = 15; // nonsense values
   return O;
 }
+
+YearQtr NA_YQ() {
+  YearQtr O;
+  O.year = 127;
+  O.qtr = 0;
+  return O;
+}
+
+
 
 Date yearqtr2Date(int year, int quarter) {
   switch(quarter) {
@@ -210,6 +242,7 @@ Date int2Date(int x) {
   return initializeDate(year, month, x - xx + 1);
 }
 
+
 static Date yyyy_mm_dd2Date(const char * x) {
   Date O;
   int year = 1900 + 100 * (x[1] == '0') + 10 * (x[2] - '0') + (x[3] - '0');
@@ -294,6 +327,8 @@ Date string2Date(const char * x, int n, int choose_fy) {
   }
   return initializeDate(2020, 1, 1);
 }
+
+
 static bool is_fy(const char * x) {
   if (starts_with_yyyy(x) &&
       isdigit(x[5]) && (isdigit(x[4]) || isdigit(x[6]))) {
@@ -342,11 +377,7 @@ void character2dates(Date * dates, R_xlen_t N, int nThread, int choose_fy, const
   })
 }
 
-static void integer2dates(Date * dates, R_xlen_t N, int nThread, const int * xp) {
-  FORLOOP({
 
-  })
-}
 
 
 
@@ -483,14 +514,7 @@ void check_SEXP_valid(SEXP x, bool constant_only, int nThread, bool check_day, b
   }
 }
 
-int string2year(const char * x) {
-  // no check on whether string length is adequate, or starts with digits
-  int year = 0;
-  year += (x[1] == '9') ? 1900 : 2000;
-  year += 10 * (x[2] - '0');
-  year += x[3] - '0';
-  return year - 1948;
-}
+
 
 YearMonth idate2YearMonth(int x) {
   YearMonth O;
@@ -501,10 +525,8 @@ YearMonth idate2YearMonth(int x) {
   O.year = j;
   int days_rem = x - IDAYS_1948_2075_0101[j];
   int m = 0;
-  for (; m < 12; ++m) {
-    if (days_rem <= MONTHDAYC[m]) {
-      break;
-    }
+  while (m < 12 && days_rem > MONTHDAYC[m]) {
+    ++m;
   }
   O.month = m;
   return O;
@@ -512,7 +534,9 @@ YearMonth idate2YearMonth(int x) {
 
 
 void SEXP2YearMonth(YearMonth * ansp,
-                    SEXP x, bool constant_only, bool prefer_fy,
+                    SEXP x,
+                    int x_class,
+                    bool constant_only, bool prefer_fy,
                     int fy_month,
                     bool check_day, const char * var, int nThread) {
   check_SEXP_valid(x, constant_only, nThread, check_day, prefer_fy, var);
@@ -522,10 +546,30 @@ void SEXP2YearMonth(YearMonth * ansp,
   R_xlen_t N = xlength(x);
   if (isInteger(x)) {
     const int * xp = INTEGER(x);
-    FORLOOP({
-      ansp[i] = idate2YearMonth(xp[i]);
-    })
-
+    switch(x_class) {
+    case CLASS_FY:
+      FORLOOP({
+        YearMonth O;
+        O.year = xp[i] - 1948;
+        O.month = 1;
+        ansp[i] = O;
+      })
+      break;
+    case CLASS_Date:
+    case CLASS_IDate:
+      FORLOOP({
+        ansp[i] = idate2YearMonth(xp[i]);
+      })
+      break;
+    case CLASS_integer:
+      FORLOOP({
+        YearMonth O;
+        O.year = xp[i];
+        O.month = 1;
+        ansp[i] = O;
+      })
+      break;
+    }
     return;
   }
   const SEXP * xp = STRING_PTR(x);

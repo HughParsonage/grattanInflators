@@ -7,6 +7,7 @@
 cpi_inflator(
   from,
   to,
+  adjustment = c("seasonal", "original", "trimmed.mean"),
   fy_month = 1L,
   .from_constant_form = FALSE,
   .to_constant_form = FALSE

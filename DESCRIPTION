@@ -15,4 +15,5 @@ Imports:
     data.table,
     fy,
     utils
-RoxygenNote: 7.1.1
+RoxygenNote: 7.2.0
+Suggests: tinytest
