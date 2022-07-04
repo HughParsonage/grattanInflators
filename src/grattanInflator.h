@@ -34,14 +34,10 @@ for (R_xlen_t i = 0; i < N; ++i) {                                  \
 
 
 
-#define MAX_NBRACK 8
-#define MAX_OFFSETN 15
-#define MAX_N_OFFSETN 15
-#define MIN_YEAR 1984
-#define MAX_YEAR 2030
+
+#define MIN_YEAR 1948
+#define MAX_YEAR 2075
 #define NA_INT -2147483648
-#define TEMP_BUDGET_REPAIR_LEVY_THRESH 180000
-#define TEMP_BUDGET_REPAIR_LEVY_RATE 0.02
 #ifndef NaN
   #define NaN NAN
 #endif

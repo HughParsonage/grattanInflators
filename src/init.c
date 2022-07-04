@@ -9,9 +9,11 @@
 
 /* .Call calls */
 extern SEXP C_Inflate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_YearMonthSplit(SEXP, SEXP, SEXP, SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
-    {"C_Inflate", (DL_FUNC) &C_Inflate, 9},
+    {"C_Inflate",        (DL_FUNC) &C_Inflate,        9},
+    {"C_YearMonthSplit", (DL_FUNC) &C_YearMonthSplit, 4},
     {NULL, NULL, 0}
 };
 
