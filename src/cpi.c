@@ -18,7 +18,7 @@ const static int IDAYS_1948_2075_0101[128] =
 
 const static int IDAY_1948 = -8036;
 const static int IDAY_2020 = 18262;
-const static int IDAY_2021 = 18628;
+// const static int IDAY_2021 = 18628;
 #define LOCATION_IDAY_2020_IN_IDAYS 72
 
 bool is_supported_IDate(unsigned int x) {
@@ -83,20 +83,6 @@ static bool is_valid_month(char u, char v) {
     return v == '0' || v == '1';
   }
   return true;
-}
-
-static int validate_fy(const char * x, int n) {
-  if (n != 7) {
-    return 0;
-  }
-  int o = 19;
-  o += x[0] - '1';
-  o *= 10;
-  o += x[2] - '0';
-  o *= 10;
-  o += x[3] - '0';
-  o *= 10;
-  return o;
 }
 
 static bool is_valid_fy_quartet(char u, char v, char x, char y) {
@@ -522,6 +508,7 @@ YearMonth idate2YearMonth(int x) {
   while (j < 128 && IDAYS_1948_2075_0101[j] < x) {
     ++j;
   }
+  --j;
   O.year = j;
   int days_rem = x - IDAYS_1948_2075_0101[j];
   int m = 0;
@@ -551,7 +538,7 @@ void SEXP2YearMonth(YearMonth * ansp,
       FORLOOP({
         YearMonth O;
         O.year = xp[i] - 1948;
-        O.month = 1;
+        O.month = fy_month;
         ansp[i] = O;
       })
       break;
@@ -671,14 +658,14 @@ void InflateQuarterly(double * restrict ansp, R_xlen_t N, int nThread,
                       R_xlen_t N_to,
                       const double * index, YearMonth index_min) {
   const int index_min_i = yqi(index_min);
-
   nThread = 1;
   if (N_from == N && N_to == N) {
     FORLOOP({
       int from_i = yqi(FromDate[i]) - index_min_i;
       int to_i = yqi(ToDate[i]) - index_min_i;
+
       if (to_i < 0 || from_i < 0) {
-        Rprintf("i = %d\t to_i = %d \t from_i = %d\n", i, to_i, from_i);
+        ansp[i] = NaN;
         continue;
       }
       double from_x = index[from_i];
@@ -815,9 +802,10 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
   }
   int index_min = asInteger(IndexMinIDate);
   YearMonth index_min_ym = idate2YearMonth(index_min);
+
   const double * index = REAL(Index);
   int freq = index_freq2int(IndexFreq);
-  int MonthFY = 6;
+  int MonthFY = 1;
 
   SEXP2YearMonth(FromDate, From, from_class, true, true, MonthFY, false, "from", nThread);
   SEXP2YearMonth(ToDate, To, to_class, true, true, MonthFY, false, "to", nThread);
@@ -844,6 +832,25 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
   UNPROTECT(1);
   return ans;
 }
+
+// void inflate_fy(double * restrict ansp,
+//                 R_xlen_t N,
+//                 const int * from, R_xlen_t N_from,
+//                 const int * to, R_xlen_t N_to,
+//                 int nThread,
+//                 const double * value, int n_value,
+//                 int min_index_fy,
+//                 int freq) {
+//   if (N_from == N_to) {
+//     FORLOOP({
+//       int from_i = from[i] - min_index_fy;
+//       int to_i = top[]
+//       double from_x = value[from[i] - ]
+//       ansp[i] = 0;
+//     })
+//   }
+// }
+
 
 
 
