@@ -4,6 +4,7 @@
 .Ruserdata
 *.*
 !*.c
+!*.h
 !*.R
 !*.Rd
 !*.tsv
