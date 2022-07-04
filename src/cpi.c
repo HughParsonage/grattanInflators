@@ -502,22 +502,7 @@ void check_SEXP_valid(SEXP x, bool constant_only, int nThread, bool check_day, b
 
 
 
-YearMonth idate2YearMonth(int x) {
-  YearMonth O;
-  int j = x >= IDAY_2020 ? LOCATION_IDAY_2020_IN_IDAYS : 0;
-  while (j < 128 && IDAYS_1948_2075_0101[j] <= x) {
-    ++j;
-  }
-  --j;
-  O.year = j;
-  int days_rem = x - IDAYS_1948_2075_0101[j];
-  int m = 1;
-  while (m < 12 && days_rem > MONTHDAYC[m]) {
-    ++m;
-  }
-  O.month = m;
-  return O;
-}
+
 
 
 void SEXP2YearMonth(YearMonth * ansp,

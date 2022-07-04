@@ -100,6 +100,8 @@ typedef struct {
 #define WPI_TREN 27138537
 
 
+// YearMonth
+// extern int IDATE_BY_YEARMONTH_SINCE_1948_JAN_1ST[1536];
 
 
 // ensure_date.c
