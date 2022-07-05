@@ -151,20 +151,27 @@ static YearMonth iym(int year, int month) {
 }
 
 YearMonth idate2YearMonth(int x) {
+  unsigned int p = 0;
   if (x < 0) {
     if (x < -8005) {
       return iym(0, 1);
     }
-    unsigned int p = bsearch_nrst(x, 1, 265);
+    p = bsearch_nrst(x, 1, 265);
     return iym(p / 12, (p % 12) + 1);
   }
   if (x > 38655) {
     return iym(127, 12);
   }
-  unsigned int p = bsearch_nrst(x, 265, 1535);
+  if (x < 15706) {
+    // 2013
+    // p = bsearch_nrst(x, 263, 781);
+    p = bsearch_nrst(x, 263, 781);
+  } else {
+    p = bsearch_nrst(x, 780, 1535);
+  }
+  // p = bsearch_nrst(x, 0, 1535);
   return iym(p / 12, (p % 12) + 1);
 }
-
 
 
 
