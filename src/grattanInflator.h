@@ -44,32 +44,12 @@ for (R_xlen_t i = 0; i < N; ++i) {                                  \
 
 
 
-// 0-127 with months
-typedef struct {
-  unsigned int years : 7;
-  unsigned int month : 4;
-} Age;
-
-typedef struct {
-  unsigned int year : 7;
-  unsigned int month : 4;
-  unsigned int day : 5;
-} Date;
-
-
 typedef struct {
   unsigned int year : 7;
   unsigned int month : 4;
 } YearMonth;
 
-typedef struct {
-  unsigned int year : 7;
-  unsigned int qtr : 2;
-} YearQtr;
 
-typedef struct {
-  unsigned int year : 7;
-} Year;
 
 
 // validate dates are 1948-07-01 to 2075-12-31 (approximately 127 years)
@@ -107,9 +87,7 @@ typedef struct {
 // ensure_date.c
 int string2year(const char * x);
 int valid_form(const char * x, int n, bool check_day, bool prefer_fy) ;
-void character2dates(Date * dates, R_xlen_t N, int nThread, int choose_fy, const SEXP * xp);
 YearMonth idate2YearMonth(int x) ;
-Date initializeDate(int year, int month, int day);
 void SEXP2YearMonth(YearMonth * ansp,
                     SEXP x,
                     int x_class,
