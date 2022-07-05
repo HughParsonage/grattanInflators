@@ -3,6 +3,7 @@ library(data.table)
 library(grattanInflators)
 
 YMS <- grattanInflators:::YearMonthSplit
+Year <- grattanInflators:::Year
 expect_equal(YMS(as.IDate("1999-12-31")), list(1999L, 12L))
 expect_equal(YMS(as.IDate("2000-01-01")), list(2000L, 1L))
 expect_equal(YMS(as.IDate("1948-07-01")), list(1948L, 7L))
@@ -13,3 +14,9 @@ expect_equal(YMS(as.IDate("2013-10-01") + (0:29)),
              list(rep(2013L, 30),
                   rep(10L, 30)))
 expect_equal(YMS(as.IDate("2010-04-01")), list(2010L, 4L))
+
+expect_equal(Year(as.IDate("1970-01-01")), 1970L)
+expect_equal(Year(as.IDate("1970-01-02")), 1970L)
+expect_equal(Year(as.IDate("1969-12-31")), 1969L)
+expect_equal(Year(as.IDate("2000-12-31")), 2000L)
+expect_equal(Year(as.IDate("1999-12-31")), 1999L)

@@ -1,6 +1,6 @@
 #include "grattanInflator.h"
 // integer values of first of every month
-int IDATE_BY_YEARMONTH_SINCE_1948_JAN_1ST[1536] = {
+const static int IDATE_BY_YEARMONTH_SINCE_1948_JAN_1ST[1536] = {
 -8036, -8005, -7976, -7945, -7915, -7884, -7854, -7823, -7792, -7762, -7731, -7701,
 -7670, -7639, -7611, -7580, -7550, -7519, -7489, -7458, -7427, -7397, -7366, -7336,
 -7305, -7274, -7246, -7215, -7185, -7154, -7124, -7093, -7062, -7032, -7001, -6971,
@@ -150,27 +150,55 @@ static YearMonth iym(int year, int month) {
   return O;
 }
 
-YearMonth idate2YearMonth(int x) {
-  unsigned int p = 0;
+// position of IDate (as integer) within the array
+// (i.e. the yearmonth since 1948-01, rounded down)
+static unsigned int p_search(int x) {
   if (x < 0) {
     if (x < -8005) {
-      return iym(0, 1);
+      return 0;
     }
-    p = bsearch_nrst(x, 1, 265);
-    return iym(p / 12, (p % 12) + 1);
+    return bsearch_nrst(x, 1, 265);
+
   }
-  if (x > 38655) {
-    return iym(127, 12);
-  }
+
   if (x < 15706) {
     // 2013
     // p = bsearch_nrst(x, 263, 781);
-    p = bsearch_nrst(x, 263, 781);
+    return bsearch_nrst(x, 263, 781);
   } else {
-    p = bsearch_nrst(x, 780, 1535);
+    return bsearch_nrst(x, 780, 1535);
   }
+
+}
+
+YearMonth idate2YearMonth(int x) {
+  unsigned int p = p_search(x);
   // p = bsearch_nrst(x, 0, 1535);
   return iym(p / 12, (p % 12) + 1);
+}
+
+
+uint16_t year(int x) {
+  uint16_t p = p_search(x);
+  return p / 12;
+}
+
+SEXP C_Year(SEXP IDates, SEXP nthreads) {
+  if (!isInteger(IDates)) {
+    return R_NilValue;
+  }
+  int nThread = as_nThread(nthreads);
+  R_xlen_t N = xlength(IDates);
+  const int * xp = INTEGER(IDates);
+  SEXP ans = PROTECT(allocVector(INTSXP, N));
+  int * restrict ansp = INTEGER(ans);
+  FORLOOP({
+    ansp[i] = year(xp[i]) + MIN_YEAR;
+  })
+  UNPROTECT(1);
+  return ans;
+
+
 }
 
 

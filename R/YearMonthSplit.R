@@ -6,3 +6,6 @@ YearMonthSplit <- function(x, nThread = 1L, fy_month = 6L) {
   .Call("C_YearMonthSplit", x, x_class, fy_month, nThread, PACKAGE = packageName())
 }
 
+Year <- function(x, nThread = 1L) {
+  .Call("C_Year", x, nThread, PACKAGE = packageName())
+}
