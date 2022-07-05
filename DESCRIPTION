@@ -11,6 +11,8 @@ Description: Using Australian Bureau of Statistics indices, provides functions
     and assists with forecasting.
 License: GPL-2
 Encoding: UTF-8
+Depends:
+    R (>= 3.5.0)
 Imports: 
     data.table,
     fy,
