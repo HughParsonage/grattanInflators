@@ -8,13 +8,29 @@ cpi_inflator(
   from,
   to,
   adjustment = c("seasonal", "original", "trimmed.mean"),
-  fy_month = 1L,
+  fy_month = 3L,
   .from_constant_form = FALSE,
-  .to_constant_form = FALSE
+  .to_constant_form = FALSE,
+  x = NULL
 )
 }
 \arguments{
 \item{from, to}{Times for which the inflator is desired.}
+
+\item{adjustment}{Which CPI series to use.}
+
+\item{fy_month}{An integer 1-12, the month to be used for
+years and financial years in \code{from} or \code{to}. Since the CPI is a
+quarterly series, specifying a year is ambiguous. For
+financial years, the month is the month of the financial year,
+so for example \code{fy_month = 9} and "2015-16" means Sep-2015,
+while \code{fy_month = 6} means Jun-2016.}
+
+\item{.from_constant_form, .to_constant_form}{Are \code{from}, \code{to}
+each of constant form? That is, are they all consistently dates,
+financial years or are they (possibly) a mixture? If \code{TRUE},
+mixtures of formats will raise an error. This is useful
+to distinguish financial years from year-month formats (e.g. 2008-09).}
 }
 \description{
 CPI inflator

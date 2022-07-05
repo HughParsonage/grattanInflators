@@ -20,3 +20,12 @@ expect_equal(Year(as.IDate("1970-01-02")), 1970L)
 expect_equal(Year(as.IDate("1969-12-31")), 1969L)
 expect_equal(Year(as.IDate("2000-12-31")), 2000L)
 expect_equal(Year(as.IDate("1999-12-31")), 1999L)
+
+yd <- as.IDate("2004-03-03") + 5 * (1:1000)
+expect_equal(Year(yd), year(yd))
+expect_equal(YMS(yd), list(year(yd), month(yd)))
+yd <- as.IDate("2004-03-03") + 5 * (1:1000)
+expect_equal(Year(yd), year(yd))
+expect_equal(YMS(yd), list(year(yd), month(yd)))
+
+

@@ -560,7 +560,7 @@ void SEXP2YearMonth(YearMonth * ansp,
         }
         const char * xj = CHAR(xp[i]);
         YearMonth O;
-        O.year = string2year(xj) + (fy_month < 7);
+        O.year = string2year(xj) + 1 - (fy_month >= 7);
         O.month = fy_month;
         ansp[i] = O;
       })
@@ -589,6 +589,7 @@ void SEXP2YearMonth(YearMonth * ansp,
     YearMonth O;
     O.year = string2year(xj);
     if (form_i == 2) {
+      O.year += 1 - (fy_month >= 7);
       O.month = fy_month;
       ansp[i] = O;
       continue;
@@ -754,7 +755,11 @@ void InflateYearly(double * restrict ansp, R_xlen_t N, int nThread,
 
 
 SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFreq,
-               SEXP x, SEXP FromClass, SEXP ToClass, SEXP nthreads) {
+               SEXP FyMonth,
+               SEXP x,
+               SEXP FromClass, SEXP ToClass,
+               SEXP FromConstantForm, SEXP ToConstantForm,
+               SEXP nthreads) {
   int nThread = as_nThread(nthreads);
   R_xlen_t N_from = xlength(From);
   R_xlen_t N_to = xlength(To);
@@ -773,6 +778,16 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
 
   int from_class = asInteger(FromClass);
   int to_class = asInteger(ToClass);
+  int MonthFY = asInteger(FyMonth);
+  if (MonthFY < 1 || MonthFY > 12) {
+    MonthFY = 3;
+  }
+  if (!isReal(Index)) {
+    error("Index wasn't REALSXP which is not supported.");
+  }
+  bool from_constant_form = asLogical(FromConstantForm);
+  bool to_constant_from = asLogical(ToConstantForm);
+
 
   YearMonth * FromDate = malloc(sizeof(YearMonth) * N_from);
   YearMonth * ToDate = malloc(sizeof(YearMonth) * N_to);
@@ -782,18 +797,16 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
     error("Could not malloc.");
   }
 
-  if (!isReal(Index)) {
-    error("Index wasn't REALSXP which is not supported.");
-  }
+
   int index_min = asInteger(IndexMinIDate);
   YearMonth index_min_ym = idate2YearMonth(index_min);
 
   const double * index = REAL(Index);
   int freq = index_freq2int(IndexFreq);
-  int MonthFY = 1;
 
-  SEXP2YearMonth(FromDate, From, from_class, true, true, MonthFY, false, "from", nThread);
-  SEXP2YearMonth(ToDate, To, to_class, true, true, MonthFY, false, "to", nThread);
+
+  SEXP2YearMonth(FromDate, From, from_class, from_constant_form, true, MonthFY, false, "from", nThread);
+  SEXP2YearMonth(ToDate, To, to_class, to_constant_from, true, MonthFY, false, "to", nThread);
 
   SEXP ans = PROTECT(isNull(x) ? allocVector(REALSXP, N) : x);
   double * restrict ansp = REAL(ans);

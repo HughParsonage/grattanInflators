@@ -2,6 +2,8 @@
 #' @import data.table
 #' @importFrom fy fy2date
 #' @importFrom utils packageName
+#' @importFrom utils download.file
+#' @importFrom utils hasName
 #' @useDynLib grattanInflators, .registration=TRUE
 #' @keywords internal
 "_PACKAGE"
