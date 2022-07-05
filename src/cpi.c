@@ -90,27 +90,6 @@ YearMonth NA_YM() {
 }
 
 
-
-static bool is_fy(const char * x) {
-  if (starts_with_yyyy(x) &&
-      isdigit(x[5]) && (isdigit(x[4]) || isdigit(x[6]))) {
-    int y1 = 1000 * (x[0] - '0');
-    y1 += 100 * (x[1] - '0');
-    y1 += 10 * (x[2] - '0');
-    y1 += x[3] - '0';
-    int y2 = 0;
-    if (isdigit(x[4])) {
-      y2 = 10 * (x[4] - '0') + (x[5] - '0');
-    } else {
-      y2 = 10 * (x[5] - '0') + (x[6] - '0');
-    }
-    int yy1 = y1 + 1;
-    return (yy1 % 100) == (y2 % 100);
-  }
-  return false;
-}
-
-
 int valid_form(const char * x, int n, bool check_day, bool prefer_fy) {
   // which valid form
   // 0 not valid
