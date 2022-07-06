@@ -8,7 +8,7 @@ unsigned char isnt_supported_IDate(int x) {
 
 
 
-unsigned char all_within_daterange(const int * xp, R_xlen_t N, int nThread) {
+unsigned char any_outside_daterange(const int * xp, R_xlen_t N, int nThread) {
   unsigned char o = 0;
 #if defined _OPENMP && _OPENMP >= 201511
 #pragma omp parallel for num_threads(nThread) schedule(static) reduction(| : o)
@@ -173,12 +173,13 @@ static void SEXP2YearMonth(unsigned char * err,
       break;
     case CLASS_Date:
     case CLASS_IDate:
-      if (all_within_daterange(xp, N, nThread)) {
+      if (any_outside_daterange(xp, N, nThread)) {
+        err[0] = ERR_IDATE_OUT_OF_RANGE;
+
+      } else {
         FORLOOP({
           ansp[i] = idate2YearMonth(xp[i]);
         })
-      } else {
-        err[0] = ERR_IDATE_OUT_OF_RANGE;
       }
       break;
     case CLASS_integer:
@@ -426,16 +427,26 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
     R_xlen_t j_err = find_err(FromDate, N_from);
     free(FromDate);
     free(ToDate);
-    error("`from` contained element '%s' at position %lld, not in valid form.",
-          CHAR(STRING_ELT(From, j_err)), j_err);
+    switch(err) {
+    case ERR_BADFORM:
+      error("`from` contained element '%s' at position %lld, not in valid form.",
+            CHAR(STRING_ELT(From, j_err)), j_err);
+    case ERR_IDATE_OUT_OF_RANGE:
+      error("`from` contained element  not in valid range.");
+    }
   }
   SEXP2YearMonth(&err, ToDate, To, to_class, to_constant_from, true, MonthFY, false, "to", nThread);
   if (err != 0) {
     R_xlen_t j_err = find_err(ToDate, N_to);
     free(FromDate);
     free(ToDate);
-    error("`to` contained element '%s' at position %lld, not in valid form.",
-          CHAR(STRING_ELT(To, j_err)), j_err);
+    switch(err) {
+    case ERR_BADFORM:
+      error("`to` contained element '%s' at position %lld, not in valid form.",
+            CHAR(STRING_ELT(From, j_err)), j_err);
+    case ERR_IDATE_OUT_OF_RANGE:
+      error("`to` contained element  not in valid range.");
+    }
   }
 
   SEXP ans = PROTECT(isNull(x) ? allocVector(REALSXP, N) : x);
