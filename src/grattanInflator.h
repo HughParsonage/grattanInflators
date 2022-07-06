@@ -80,6 +80,7 @@ typedef struct {
 #define WPI_TREN 27138537
 
 #define ERR_BADFORM 1
+#define ERR_IDATE_OUT_OF_RANGE 2
 
 
 // YearMonth

@@ -28,4 +28,10 @@ yd <- as.IDate("2004-03-03") + 5 * (1:1000)
 expect_equal(Year(yd), year(yd))
 expect_equal(YMS(yd), list(year(yd), month(yd)))
 
+# Year outside bounds
+expect_equal(Year("1800-01-01"), 1800L)
+
+
+
+
 

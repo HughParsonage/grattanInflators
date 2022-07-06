@@ -204,6 +204,10 @@ SEXP C_Year(SEXP IDates, SEXP nthreads) {
     min_idate = (min_idate < xpi) ? min_idate : xpi;
     max_idate = (max_idate > xpi) ? max_idate : xpi;
   }
+  if (min_idate < MIN_IDATE || max_idate > MAX_IDATE) {
+    return R_NilValue; // # nocov
+  }
+
   const unsigned int p_min_idate = p_search(min_idate);
   const unsigned int p_max_idate = p_search(max_idate);
 

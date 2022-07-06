@@ -7,5 +7,9 @@ YearMonthSplit <- function(x, nThread = 1L, fy_month = 6L) {
 }
 
 Year <- function(x, nThread = 1L) {
-  .Call("C_Year", x, nThread, PACKAGE = packageName())
+  ans <- .Call("C_Year", x, nThread, PACKAGE = packageName())
+  if (is.integer(ans)) {
+    return(ans)
+  }
+  year(x) # nocov
 }

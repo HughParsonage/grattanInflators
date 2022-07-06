@@ -2,29 +2,21 @@
 
 
 
-bool is_supported_IDate(unsigned int x) {
-  unsigned int ux = (x + NEG_MIN_IDATE);
-  return ux < RANGE_IDATE;
+unsigned char isnt_supported_IDate(int x) {
+  return (x < MIN_IDATE) | (x > MAX_IDATE);
 }
 
 
 
-void check_within_idaterange(const int * xp, R_xlen_t N, int nThread, const char * var) {
-  char o = 1;
+unsigned char all_within_daterange(const int * xp, R_xlen_t N, int nThread) {
+  unsigned char o = 0;
 #if defined _OPENMP && _OPENMP >= 201511
-#pragma omp parallel for num_threads(nThread) schedule(static) reduction(& : o)
+#pragma omp parallel for num_threads(nThread) schedule(static) reduction(| : o)
 #endif
   for (R_xlen_t i = 0; i < N; ++i) {
-    o &= is_supported_IDate(xp[i]);
+    o |= isnt_supported_IDate(xp[i]);
   }
-  if (o != 1) {
-    for (R_xlen_t i = 0; i < N; ++i) {
-      if (!is_supported_IDate(xp[i])) {
-        error("In `%s`, vector was integer but value %d at position %lld was not in valid range",
-              var, xp[i], i + 1);
-      }
-    }
-  }
+  return o;
 }
 
 int is_leap_year(int year) {
@@ -181,9 +173,13 @@ static void SEXP2YearMonth(unsigned char * err,
       break;
     case CLASS_Date:
     case CLASS_IDate:
-      FORLOOP({
-        ansp[i] = idate2YearMonth(xp[i]);
-      })
+      if (all_within_daterange(xp, N, nThread)) {
+        FORLOOP({
+          ansp[i] = idate2YearMonth(xp[i]);
+        })
+      } else {
+        err[0] = ERR_IDATE_OUT_OF_RANGE;
+      }
       break;
     case CLASS_integer:
       FORLOOP({
