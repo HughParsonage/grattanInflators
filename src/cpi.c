@@ -44,6 +44,7 @@ static bool starts_with_yyyy(const char * x) {
   return (x[0] == '1' || x[0] == '2') && isdigit(x[1]) && isdigit(x[2]) && isdigit(x[3]);
 }
 
+
 int string2year(const char * x) {
   // no check on whether string length is adequate, or starts with digits
   int year = 0;
@@ -53,20 +54,52 @@ int string2year(const char * x) {
   return year - 1948;
 }
 
-static bool is_valid_month(char u, char v) {
-  if (u < '0' || u > '3') {
-    return false;
+
+static int string2month(const char * x) {
+  // can't see a faster way to both validate and mark
+  switch(x[5]) {
+  case '0':
+    switch(x[6]) {
+    case '1':
+      return 1;
+    case '2':
+      return 2;
+    case '3':
+      return 3;
+    case '4':
+      return 4;
+    case '5':
+      return 5;
+    case '6':
+      return 6;
+    case '7':
+      return 7;
+    case '8':
+      return 8;
+    case '9':
+      return 9;
+    default:
+      return 15;
+    }
+    break;
+  case '1':
+    switch(x[6]) {
+    case '0':
+      return 10;
+    case '1':
+      return 11;
+    case '2':
+      return 12;
+    }
+    break;
+  default:
+    return 15;
   }
-  if (!isdigit(v)) {
-    return false;
-  }
-  if (u == '3') {
-    return v == '0' || v == '1';
-  }
-  return true;
+  return 15;
 }
 
-static bool is_valid_fy_quartet(char u, char v, char x, char y) {
+static bool is_valid_fy_quartet(const char * z) {
+  register char u = z[2], v = z[3], x = z[5], y = z[6];
   if (!isdigit(u) || !isdigit(v) || !isdigit(x) || !isdigit(y)) {
     return false;
   }
@@ -82,7 +115,7 @@ static bool is_valid_fy_quartet(char u, char v, char x, char y) {
   return x == u && y == v + 1;
 }
 
-YearMonth NA_YM() {
+static YearMonth NA_YM() {
   YearMonth O;
   O.year = 127;
   O.month = 15; // nonsense values
@@ -90,125 +123,31 @@ YearMonth NA_YM() {
 }
 
 
-int valid_form(const char * x, int n, bool check_day, bool prefer_fy) {
-  // which valid form
-  // 0 not valid
 
-  //   0123456789
-  // 1 YYYY-MM-DD
-  // 2 YYYY-ZZ (fy)
-  // 3 YYYY-MM
-  if (n != 10 && n != 7) {
-    return 0;
-  }
-  if (!starts_with_yyyy(x)) {
-    return 0;
-  }
-  if (!isdigit(x[6])) {
-    return 0;
-  }
-
-
-  if (n == 10) {
-    if (x[5] != '0' && x[5] != '1') {
-      return 0;
-    }
-    // 00-12
-    if (x[5] == '1' && x[6] != '0' && x[6] != '1' && x[6] != '2') {
-      return 0;
-    }
-    if (check_day) {
-      if (x[8] < '0' || x[8] > '3') {
-        return 0;
-      }
-      if (!isdigit(x[9])) {
-        return 0;
-      }
-      if (x[5] == '0' && x[6] == '2') {
-        // February
-        if (x[8] == '3') {
-          return 0;
-        }
-        // TODO:
-        // check leap year valid for 9
-      }
-    }
-    return 1;
-  }
-  if (is_valid_fy_quartet(x[2], x[3], x[5], x[6])) {
-    // maybe 2010-11
-    if (!prefer_fy && is_valid_month(x[5], x[6])) {
-      return 3;
-    }
-    return 2;
-  }
-  return 0;
-}
-
-void check_string_valid(SEXP x, bool constant_only, int nThread, bool check_day, bool prefer_fy, const char * var) {
-  if (!isString(x)) {
-    error("Internal error(check_string_valid): expected a string."); // # nocov
-  }
-  R_xlen_t N = xlength(x);
-  if (N == 0) {
+static void string2YearMonth(unsigned char * err,
+                             YearMonth * ans,
+                             const char * x, int n) {
+  if ((n != 10 && n != 7) || !starts_with_yyyy(x)) {
+    ans->year = 127;
+    ans->month = 15;
+    *err = 1;
     return;
   }
-  const SEXP * xp = STRING_PTR(x);
-  R_xlen_t j = 0;
-  while (j < N && xp[j] == NA_STRING) {
-    ++j;
-  }
-  if (j == N) {
-    warning("`%s` is naught but NA_STRING (completely empty) so no valid form can be identified.", var);
-    return;
-  }
-  if (constant_only) {
-    int first_form = valid_form(CHAR(xp[j]), length(xp[j]), check_day, prefer_fy);
-    if (first_form == 0) {
-      error("`%s` was not in valid form at position %lld = '%s'", var, j + 1, CHAR(xp[j]));
-    }
+  ans->year = string2year(x);
 
-    for (R_xlen_t i = j + 1; i < N; ++i) {
-      if (xp[i] == NA_STRING) {
-        continue;
-      }
-      int valid_form_i = valid_form(CHAR(xp[i]), length(xp[i]), check_day, prefer_fy);
-      if (valid_form_i == 0) {
-        error("`%s` was not of a valid form at position %lld = '%s'.", var, j + 1, CHAR(xp[j]));
-      }
-      if (valid_form_i != first_form) {
-        error("`%s` was not of the same date form throughout.\n\t %s[%lld] = '%s'\n\t %s[%lld] = '%s'.",
-              var,
-              var, j + 1, CHAR(xp[j + 1]),
-              var, i + 1, CHAR(xp[i + 1]));
-      }
-
-    }
-    return;
-  }
-  for (R_xlen_t i = j + 1; i < N; ++i) {
-    if (xp[i] == NA_STRING) {
-      continue;
-    }
-    int valid_form_i = valid_form(CHAR(xp[i]), length(xp[i]), check_day, prefer_fy);
-    if (valid_form_i == 0) {
-      error("`%s` was not of a valid form at position %lld = '%s'.", var, j + 1, CHAR(xp[j]));
-    }
-  }
-}
-
-void check_SEXP_valid(SEXP x, bool constant_only, int nThread, bool check_day, bool prefer_fy, const char * var) {
-  switch(TYPEOF(x)) {
-  case INTSXP:
-    check_within_idaterange(INTEGER(x), xlength(x), nThread, var);
+  switch(n) {
+  case 10:
+    ans->month = string2month(x);
     break;
-  case REALSXP:
-    error("Internal error(check_SEXP_valid): was passed a REALSXP, but numeric vectors should be integer here."); // # nocov
-  case STRSXP:
-    check_string_valid(x, constant_only, nThread, check_day, prefer_fy, var);
+  case 7:
+    if (is_valid_fy_quartet(x)) {
+      ans->year++;
+      ans->month = 3;
+    } else {
+      ans->month = 15;
+      *err = 2;
+    }
     break;
-  default:
-    error("`%s` was type '%s' but must be character or integer.", var, type2char(TYPEOF(x)));
   }
 }
 
@@ -217,13 +156,14 @@ void check_SEXP_valid(SEXP x, bool constant_only, int nThread, bool check_day, b
 
 
 
-void SEXP2YearMonth(YearMonth * ansp,
-                    SEXP x,
-                    int x_class,
-                    bool constant_only, bool prefer_fy,
-                    int fy_month,
-                    bool check_day, const char * var, int nThread) {
-  check_SEXP_valid(x, constant_only, nThread, check_day, prefer_fy, var);
+
+static void SEXP2YearMonth(unsigned char * err,
+                           YearMonth * ansp,
+                           SEXP x,
+                           int x_class,
+                           bool constant_only, bool prefer_fy,
+                           int fy_month,
+                           bool check_day, const char * var, int nThread) {
   if (ansp == NULL) {
     return;
   }
@@ -257,61 +197,20 @@ void SEXP2YearMonth(YearMonth * ansp,
     return;
   }
   const SEXP * xp = STRING_PTR(x);
+  unsigned char err_ = err[0];
 
-  if (constant_only) {
-    R_xlen_t j = 0;
-    while (j < N && xp[j] == NA_STRING) {
-      ++j;
-    }
-    int form = valid_form(CHAR(xp[j]), length(xp[j]), check_day, prefer_fy);
-    if (form == 2) {
-      FORLOOP({
-        if (xp[i] == NA_STRING) {
-          ansp[i] = NA_YM();
-          continue;
-        }
-        const char * xj = CHAR(xp[i]);
-        YearMonth O;
-        O.year = string2year(xj) + 1 - (fy_month >= 7);
-        O.month = fy_month;
-        ansp[i] = O;
-      })
-    } else {
-      FORLOOP({
-        if (xp[i] == NA_STRING) {
-          ansp[i] = NA_YM();
-          continue;
-        }
-        const char * xj = CHAR(xp[i]);
-        YearMonth O;
-        O.year = string2year(xj);
-        O.month = 10 * (xj[5] - '0') + (xj[6] - '0');
-        ansp[i] = O;
-      })
-    }
-    return;
-  }
-  FORLOOP({
-    if (xp[i] == NA_STRING) {
-      ansp[i] = NA_YM();
-      continue;
-    }
-    const char * xj = CHAR(xp[i]);
-    int form_i = valid_form(xj, length(xp[i]), check_day, prefer_fy);
+#if defined _OPENMP && _OPENMP >= 201511
+#pragma omp parallel for num_threads(nThread) reduction(| : err_)
+#endif
+  for (R_xlen_t i = 0; i < N; ++i) {
     YearMonth O;
-    O.year = string2year(xj);
-    if (form_i == 2) {
-      O.year += 1 - (fy_month >= 7);
-      O.month = fy_month;
-      ansp[i] = O;
-      continue;
-    }
-    O.month = 10 * (xj[5] - '0') + (xj[6] - '0');
+    string2YearMonth(&err_, &O, CHAR(xp[i]), length(xp[i]));
     ansp[i] = O;
-  })
+  }
+  err[0] = err_;
 }
 
-int index_freq2int(SEXP IndexFreq) {
+static int index_freq2int(SEXP IndexFreq) {
   switch(TYPEOF(IndexFreq)) {
   case INTSXP:
   case REALSXP:
@@ -464,6 +363,14 @@ void InflateYearly(double * restrict ansp, R_xlen_t N, int nThread,
   }
 }
 
+static R_xlen_t find_err(YearMonth * xp, R_xlen_t N) {
+  for (R_xlen_t i = 0; i < N; ++i) {
+    if (xp[i].month > 12) {
+      return i + 1;
+    }
+  }
+  return 0;
+}
 
 
 SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFreq,
@@ -516,9 +423,24 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
   const double * index = REAL(Index);
   int freq = index_freq2int(IndexFreq);
 
+  unsigned char err = 0;
 
-  SEXP2YearMonth(FromDate, From, from_class, from_constant_form, true, MonthFY, false, "from", nThread);
-  SEXP2YearMonth(ToDate, To, to_class, to_constant_from, true, MonthFY, false, "to", nThread);
+  SEXP2YearMonth(&err, FromDate, From, from_class, from_constant_form, true, MonthFY, false, "from", nThread);
+  if (err != 0) {
+    R_xlen_t j_err = find_err(FromDate, N_from);
+    free(FromDate);
+    free(ToDate);
+    error("`from` contained element '%s' at position %lld, not in valid form.",
+          CHAR(STRING_ELT(From, j_err)), j_err);
+  }
+  SEXP2YearMonth(&err, ToDate, To, to_class, to_constant_from, true, MonthFY, false, "to", nThread);
+  if (err != 0) {
+    R_xlen_t j_err = find_err(ToDate, N_to);
+    free(FromDate);
+    free(ToDate);
+    error("`to` contained element '%s' at position %lld, not in valid form.",
+          CHAR(STRING_ELT(To, j_err)), j_err);
+  }
 
   SEXP ans = PROTECT(isNull(x) ? allocVector(REALSXP, N) : x);
   double * restrict ansp = REAL(ans);
@@ -555,8 +477,8 @@ SEXP C_YearMonthSplit(SEXP x, SEXP xClass, SEXP MonthFY, SEXP nthreads) {
     free(x_YM);
     return R_NilValue;
   }
-
-  SEXP2YearMonth(x_YM, x, x_class, true, true, month_fy, false, "x", nThread);
+  unsigned char err = 0;
+  SEXP2YearMonth(&err, x_YM, x, x_class, true, true, month_fy, false, "x", nThread);
   int np = 0;
   SEXP ans1 = PROTECT(allocVector(INTSXP, N)); ++np;
   SEXP ans2 = PROTECT(allocVector(INTSXP, N)); ++np;

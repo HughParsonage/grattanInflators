@@ -25,7 +25,9 @@ cpi_inflator <- function(from, to,
                          x = NULL) {
   adjustment <- match.arg(adjustment)
   Index <- GET_SERIES(cpi2series_id(adjustment))
-  Inflate(from, to, Index, fy_month = fy_month)
+  Inflate(from, to, Index, fy_month = fy_month,
+          .from_constant_form = .from_constant_form,
+          .to_constant_form = .to_constant_form)
 }
 
 cpi2series_id <- function(adjustment) {

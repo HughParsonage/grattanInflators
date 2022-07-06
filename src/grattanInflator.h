@@ -79,21 +79,14 @@ typedef struct {
 #define WPI_SEAS 27138502
 #define WPI_TREN 27138537
 
+#define ERR_BADFORM 1
+
 
 // YearMonth
 // extern int IDATE_BY_YEARMONTH_SINCE_1948_JAN_1ST[1536];
-
+YearMonth idate2YearMonth(int x);
 
 // ensure_date.c
-int string2year(const char * x);
-int valid_form(const char * x, int n, bool check_day, bool prefer_fy) ;
-YearMonth idate2YearMonth(int x) ;
-void SEXP2YearMonth(YearMonth * ansp,
-                    SEXP x,
-                    int x_class,
-                    bool constant_only, bool prefer_fy,
-                    int fy_month,
-                    bool check_day, const char * var, int nThread);
 
 // errif.c
 void prohibit_vector_recyling(SEXP x, SEXP y, const char * wx, const char * wy);
