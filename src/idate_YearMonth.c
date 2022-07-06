@@ -168,7 +168,6 @@ static unsigned int p_search(int x) {
   } else {
     return bsearch_nrst(x, 780, 1535);
   }
-
 }
 
 YearMonth idate2YearMonth(int x) {
@@ -183,6 +182,11 @@ uint16_t year(int x) {
   return p / 12;
 }
 
+uint16_t year2(int x, unsigned int lwr, unsigned int upr) {
+  uint16_t p = bsearch_nrst(x, lwr, upr);
+  return p / 12;
+}
+
 SEXP C_Year(SEXP IDates, SEXP nthreads) {
   if (!isInteger(IDates)) {
     return R_NilValue;
@@ -190,10 +194,23 @@ SEXP C_Year(SEXP IDates, SEXP nthreads) {
   int nThread = as_nThread(nthreads);
   R_xlen_t N = xlength(IDates);
   const int * xp = INTEGER(IDates);
+  int min_idate = xp[0];
+  int max_idate = xp[0];
+#if defined _OPENMP && _OPENMP >= 201511
+#pragma omp parallel for num_threads(nThread) reduction(min : min_idate) reduction(max : max_idate)
+#endif
+  for (R_xlen_t i = 1; i < N; ++i) {
+    int xpi = xp[i];
+    min_idate = (min_idate < xpi) ? min_idate : xpi;
+    max_idate = (max_idate > xpi) ? max_idate : xpi;
+  }
+  const unsigned int p_min_idate = p_search(min_idate);
+  const unsigned int p_max_idate = p_search(max_idate);
+
   SEXP ans = PROTECT(allocVector(INTSXP, N));
   int * restrict ansp = INTEGER(ans);
   FORLOOP({
-    ansp[i] = year(xp[i]) + MIN_YEAR;
+    ansp[i] = year2(xp[i], p_min_idate, p_max_idate) + MIN_YEAR;
   })
   UNPROTECT(1);
   return ans;
