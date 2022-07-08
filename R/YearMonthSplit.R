@@ -13,3 +13,12 @@ Year <- function(x, nThread = 1L) {
   }
   year(x) # nocov
 }
+
+
+fast_as_idate <- function(x, nThread = 1L) {
+  o <- .Call("C_fastIDate", x, nThread, PACKAGE = packageName())
+  class(o) <- c("IDate", "Date")
+  o
+}
+
+

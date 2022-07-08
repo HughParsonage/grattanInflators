@@ -432,7 +432,7 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
       error("`from` contained element '%s' at position %lld, not in valid form.",
             CHAR(STRING_ELT(From, j_err)), j_err);
     case ERR_IDATE_OUT_OF_RANGE:
-      error("`from` contained element  not in valid range.");
+      error("`from` contained element not in valid range.");
     }
   }
   SEXP2YearMonth(&err, ToDate, To, to_class, to_constant_from, true, MonthFY, false, "to", nThread);
@@ -445,7 +445,7 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
       error("`to` contained element '%s' at position %lld, not in valid form.",
             CHAR(STRING_ELT(From, j_err)), j_err);
     case ERR_IDATE_OUT_OF_RANGE:
-      error("`to` contained element  not in valid range.");
+      error("`to` contained element not in valid range.");
     }
   }
 
@@ -473,6 +473,168 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
   UNPROTECT(1);
   return ans;
 }
+
+// string-string (equilength)
+static void inflate4_SS(double * restrict ansp, R_xlen_t N, int nThread,
+                        const SEXP * xp,
+                        const SEXP * yp,
+                        const double * v,
+                        const unsigned int p_index_min,
+                        const int freq) {
+  FORLOOP({
+    const char * xpi = CHAR(xp[i]);
+    const char * ypi = CHAR(yp[i]);
+
+    int nxpi = length(xp[i]);
+    if (nxpi != 10 && nxpi != 7) {
+      ansp[i] = NA_REAL;
+      continue;
+    }
+    int nypi = length(yp[i]);
+    if (nypi != 10 && nypi != 7) {
+      ansp[i] = NA_REAL;
+    }
+    unsigned int px = (nxpi == 10) ? p_search_string10(xpi) : p_search_string7_unsafe(xpi);
+    unsigned int py = (nypi == 10) ? p_search_string10(ypi) : p_search_string7_unsafe(ypi);
+    if (freq <= 4) {
+      px /= 3;
+      py /= 3;
+      if (freq == 1) {
+        px /= 4;
+        py /= 4;
+      }
+    }
+    px -= p_index_min;
+    py -= p_index_min;
+    double vx = v[px];
+    double vy = v[py];
+    ansp[i] = vy / vx;
+  })
+}
+
+// string-string (equilength)
+static void inflate4_Ss(double * restrict ansp, R_xlen_t N, int nThread,
+                        const SEXP * xp,
+                        const SEXP * yp,
+                        const double * v,
+                        const unsigned int p_index_min,
+                        const int freq,
+                        bool deflate) {
+  const char * ypi = CHAR(yp[0]);
+
+  const int nypi = length(yp[0]);
+  if (nypi != 10 && nypi != 7) {
+    FORLOOP({
+      ansp[i] = NA_REAL;
+    })
+    return;
+  }
+  unsigned int py = (nypi == 10) ? p_search_string10(ypi) : p_search_string7_unsafe(ypi);
+  if (freq <= 4) {
+    py /= 3;
+    if (freq == 1) {
+      py /= 4;
+    }
+  }
+  py -= p_index_min;
+  const double vy = v[py];
+
+  FORLOOP({
+    const char * xpi = CHAR(xp[i]);
+
+    int nxpi = length(xp[i]);
+    if (nxpi != 10 && nxpi != 7) {
+      ansp[i] = NA_REAL;
+      continue;
+    }
+    unsigned int px = (nxpi == 10) ? p_search_string10(xpi) : p_search_string7_unsafe(xpi);
+    if (freq <= 4) {
+      px /= 3;
+      if (freq == 1) {
+        px /= 4;
+      }
+    }
+    px -= p_index_min;
+    double vx = v[px];
+    ansp[i] = deflate ? (vx / vy) : (vy / vx);
+  })
+}
+
+
+
+
+static void inflate4_SI(double * restrict ansp, R_xlen_t N, int nThread,
+                        const SEXP * xp,
+                        const int * yp,
+                        const double * v,
+                        const unsigned int p_index_min,
+                        const int freq) {
+  FORLOOP({
+    const char * xpi = CHAR(xp[i]);
+    int nxpi = length(xp[i]);
+    if (nxpi != 10 && nxpi != 7) {
+      ansp[i] = NA_REAL;
+      continue;
+    }
+    unsigned int px = (nxpi == 10) ? p_search_string10(xpi) : p_search_string7_unsafe(xpi);
+    if (freq <= 4) {
+      px /= 3;
+      if (freq == 1) {
+        px /= 4;
+      }
+    }
+    px -= p_index_min;
+
+    unsigned int py = p_search(yp[i]);
+    double vx = v[px];
+    double vy = v[py];
+    ansp[i] = vy / vx;
+  })
+}
+
+
+SEXP C_inflate4(SEXP From, SEXP To, SEXP nthreads, SEXP Index, SEXP IndexMinIDate) {
+  R_xlen_t N_from = xlength(From);
+  R_xlen_t N_to = xlength(To);
+  R_xlen_t N = N_from >= N_to ? N_from : N_to;
+
+  int n_index = length(Index);
+  int index_min = asInteger(IndexMinIDate);
+  YearMonth index_min_ym = idate2YearMonth(index_min);
+  const double * index = REAL(Index);
+
+  SEXP ans = PROTECT(allocVector(REALSXP, N));
+  double * restrict ansp = REAL(ans);
+  int nThread = as_nThread(nthreads);
+  // switch(TYPEOF(From)) {
+  // case STRSXP:
+  // {
+  //   const SEXP * xp = STRING_PTR(From);
+  //   switch(TYPEOF(To)) {
+  //   case STRSXP:
+  //   {
+  //     const SEXP * yp = STRING_PTR(From);
+  //     FORLOOP({
+  //       int i_from = p_
+  //     })
+  //   }
+  //   case INTSXP:
+  //
+  //   }
+  // }
+  // case INTSXP:
+  //   switch(TYPEOF(To)) {
+  //   case STRSXP:
+  //   case INTSXP:
+  //   }
+  // }
+  // UNPROTECT(1);
+  return ans;
+}
+
+
+
+
 
 SEXP C_YearMonthSplit(SEXP x, SEXP xClass, SEXP MonthFY, SEXP nthreads) {
   R_xlen_t N = xlength(x);
@@ -505,6 +667,9 @@ SEXP C_YearMonthSplit(SEXP x, SEXP xClass, SEXP MonthFY, SEXP nthreads) {
   UNPROTECT(np);
   return ans;
 }
+
+
+
 
 
 

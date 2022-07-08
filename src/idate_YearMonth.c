@@ -152,7 +152,7 @@ static YearMonth iym(int year, int month) {
 
 // position of IDate (as integer) within the array
 // (i.e. the yearmonth since 1948-01, rounded down)
-static unsigned int p_search(int x) {
+unsigned int p_search(int x) {
   if (x < 0) {
     if (x < -8005) {
       return 0;
@@ -221,6 +221,93 @@ SEXP C_Year(SEXP IDates, SEXP nthreads) {
 
 
 }
+static int string102year(const char * x) {
+  switch(x[0]) {
+  case '1':
+    if (x[1] == '9' && isdigit(x[2]) && isdigit(x[3])) {
+      return 1900 + 10 * (x[2] - '0') + (x[3] - '0');
+    } else {
+      return NA_INTEGER;
+    }
+    break;
+  case '2':
+    if (x[1] == '0' && isdigit(x[2]) && isdigit(x[3])) {
+      return 2000 + 10 * (x[2] - '0') + (x[3] - '0');
+    } else {
+      return NA_INTEGER;
+    }
+    break;
+  }
+  return NA_INTEGER;
+}
+
+static int string102month(const char * x) {
+  switch(x[5]) {
+  case '0':
+    return isdigit(x[6]) ? x[6] - '0' : NA_INTEGER;
+  case '1':
+    switch(x[6]) {
+    case '0':
+      return 10;
+    case '1':
+      return 11;
+    case '2':
+      return 12;
+    }
+  }
+  return NA_INTEGER;
+}
+
+static int string2fy(const char * x) {
+  int yy = string102year(x);
+  return yy + 1;
+}
+
+// ignores date
+SEXP C_fastIDate(SEXP x, SEXP nthreads) {
+  int nThread = as_nThread(nthreads);
+  if (!isString(x)) {
+    error("Expected a STRSXP.");
+  }
+  const SEXP * xp = STRING_PTR(x);
+  R_xlen_t N = xlength(x);
+  SEXP ans = PROTECT(allocVector(INTSXP, N));
+  int * restrict ansp = INTEGER(ans);
+  FORLOOP({
+    int n = length(xp[i]);
+    const char * xi = CHAR(xp[i]);
+    if (n != 10) {
+      ansp[i] = NA_INTEGER;
+      continue;
+    }
+    int year_i = string102year(xi);
+    unsigned int month_i = string102month(xi);
+    if (year_i < 1948 || year_i > 2075 || month_i > 12) {
+      ansp[i] = NA_INTEGER;
+      continue;
+    }
+    ansp[i] = ARR[12 * (year_i - 1948) + (month_i - 1)];
+  })
+  UNPROTECT(1);
+  return ans;
+}
+
+unsigned int p_search_string10(const char * x) {
+  unsigned int m = string102month(x);
+  unsigned int y = string102year(x);
+  y -= MIN_YEAR;
+  if (y > 127 && m > 12) {
+    y = 127;
+  }
+  return 12 * y + m - 1;
+}
+
+unsigned int p_search_string7_unsafe(const char * x) {
+  int y = string2fy(x);
+  y -= MIN_YEAR;
+  return y + 9; // FY
+}
+
 
 
 

@@ -114,4 +114,12 @@ cpi_inflator2 <- function(from, to) {
   to_value / from_value
 }
 
+cpi_inflator3 <- function(from, to) {
+  index <- GET_SERIES(cpi2series_id("original"))
+  index_dates <- as.IDate(.subset2(index, "date"))
+  index_min_date <- index_dates[1L]
+  freq <- date2freq(index_dates)
+  .Call("C_Inflate2", from, to, .subset2(index, "value"), index_min_date, freq, 1L, PACKAGE = "grattanInflators")
+}
+
 
