@@ -474,6 +474,28 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
   return ans;
 }
 
+static unsigned int p_search_string(const char * x, int n, int freq) {
+  unsigned int px = (n == 10) ? p_search_string10(x) : p_search_string7_unsafe(x);
+  if (freq <= 4) {
+    px /= 3;
+    if (freq == 1) {
+      px /= 4;
+    }
+  }
+  return px;
+}
+
+static unsigned int p_search_int(int x, int freq) {
+  unsigned int px = p_search(x);
+  if (freq <= 4) {
+    px /= 3;
+    if (freq == 1) {
+      px /= 4;
+    }
+  }
+  return px;
+}
+
 // string-string (equilength)
 static void inflate4_SS(double * restrict ansp, R_xlen_t N, int nThread,
                         const SEXP * xp,
@@ -494,16 +516,8 @@ static void inflate4_SS(double * restrict ansp, R_xlen_t N, int nThread,
     if (nypi != 10 && nypi != 7) {
       ansp[i] = NA_REAL;
     }
-    unsigned int px = (nxpi == 10) ? p_search_string10(xpi) : p_search_string7_unsafe(xpi);
-    unsigned int py = (nypi == 10) ? p_search_string10(ypi) : p_search_string7_unsafe(ypi);
-    if (freq <= 4) {
-      px /= 3;
-      py /= 3;
-      if (freq == 1) {
-        px /= 4;
-        py /= 4;
-      }
-    }
+    unsigned int px = p_search_string(xpi, nxpi, freq);
+    unsigned int py = p_search_string(ypi, nypi, freq);
     px -= p_index_min;
     py -= p_index_min;
     double vx = v[px];
@@ -529,7 +543,56 @@ static void inflate4_Ss(double * restrict ansp, R_xlen_t N, int nThread,
     })
     return;
   }
-  unsigned int py = (nypi == 10) ? p_search_string10(ypi) : p_search_string7_unsafe(ypi);
+  unsigned int py = p_search_string(ypi, nypi, freq);
+  py -= p_index_min;
+  const double vy = v[py];
+
+  FORLOOP({
+    const char * xpi = CHAR(xp[i]);
+    int nxpi = length(xp[i]);
+    if (nxpi != 10 && nxpi != 7) {
+      ansp[i] = NA_REAL;
+      continue;
+    }
+    unsigned int px = p_search_string(xpi, nxpi, freq);
+    px -= p_index_min;
+    double vx = v[px];
+    ansp[i] = deflate ? (vx / vy) : (vy / vx);
+  })
+}
+
+static void inflate4_SI(double * restrict ansp, R_xlen_t N, int nThread,
+                        const SEXP * xp,
+                        const int * yp,
+                        const double * v,
+                        const unsigned int p_index_min,
+                        const int freq,
+                        bool deflate) {
+  FORLOOP({
+    const char * xpi = CHAR(xp[i]);
+    int nxpi = length(xp[i]);
+    if (nxpi != 10 && nxpi != 7) {
+      ansp[i] = NA_REAL;
+      continue;
+    }
+    unsigned int px = p_search_string(xpi, nxpi, freq);
+    px -= p_index_min;
+
+    unsigned int py = p_search(yp[i]);
+    double vx = v[px];
+    double vy = v[py];
+    ansp[i] = deflate ? (vx / vy) : (vy / vx);
+  })
+}
+
+static void inflate4_Si(double * restrict ansp, R_xlen_t N, int nThread,
+                        const SEXP * xp,
+                        const int yp,
+                        const double * v,
+                        const unsigned int p_index_min,
+                        const int freq,
+                        bool deflate) {
+  unsigned int py = p_search(yp);
   if (freq <= 4) {
     py /= 3;
     if (freq == 1) {
@@ -541,13 +604,37 @@ static void inflate4_Ss(double * restrict ansp, R_xlen_t N, int nThread,
 
   FORLOOP({
     const char * xpi = CHAR(xp[i]);
-
     int nxpi = length(xp[i]);
     if (nxpi != 10 && nxpi != 7) {
       ansp[i] = NA_REAL;
       continue;
     }
-    unsigned int px = (nxpi == 10) ? p_search_string10(xpi) : p_search_string7_unsafe(xpi);
+    unsigned int px = p_search_string(xpi, nxpi, freq);
+    px -= p_index_min;
+    double vx = v[px];
+    ansp[i] = deflate ? (vx / vy) : (vy / vx);
+  })
+}
+
+static void inflate4_Is(double * restrict ansp, R_xlen_t N, int nThread,
+                        const int * xp,
+                        const SEXP * yp,
+                        const double * v,
+                        const unsigned int p_index_min,
+                        const int freq,
+                        bool deflate) {
+  unsigned int py = p_search_string(CHAR(yp[0]), length(yp[0]), freq);
+  if (freq <= 4) {
+    py /= 3;
+    if (freq == 1) {
+      py /= 4;
+    }
+  }
+  py -= p_index_min;
+  const double vy = v[py];
+
+  FORLOOP({
+    unsigned int px = p_search(xp[i]);
     if (freq <= 4) {
       px /= 3;
       if (freq == 1) {
@@ -560,40 +647,39 @@ static void inflate4_Ss(double * restrict ansp, R_xlen_t N, int nThread,
   })
 }
 
-
-
-
-static void inflate4_SI(double * restrict ansp, R_xlen_t N, int nThread,
-                        const SEXP * xp,
+static void inflate4_II(double * restrict ansp, R_xlen_t N, int nThread,
+                        const int * xp,
                         const int * yp,
                         const double * v,
                         const unsigned int p_index_min,
                         const int freq) {
   FORLOOP({
-    const char * xpi = CHAR(xp[i]);
-    int nxpi = length(xp[i]);
-    if (nxpi != 10 && nxpi != 7) {
-      ansp[i] = NA_REAL;
-      continue;
-    }
-    unsigned int px = (nxpi == 10) ? p_search_string10(xpi) : p_search_string7_unsafe(xpi);
-    if (freq <= 4) {
-      px /= 3;
-      if (freq == 1) {
-        px /= 4;
-      }
-    }
-    px -= p_index_min;
-
-    unsigned int py = p_search(yp[i]);
-    double vx = v[px];
+    unsigned int px = p_search_int(xp[i], freq);
+    unsigned int py = p_search_int(yp[i], freq);
     double vy = v[py];
+    double vx = v[px];
     ansp[i] = vy / vx;
   })
 }
 
+static void inflate4_Ii(double * restrict ansp, R_xlen_t N, int nThread,
+                        const int * xp,
+                        const int yp,
+                        const double * v,
+                        const unsigned int p_index_min,
+                        const int freq,
+                        bool deflate) {
+  unsigned int py = p_search_int(yp, freq);
+  const double vy = v[py];
+  FORLOOP({
+    unsigned int px = p_search_int(xp[i], freq);
+    double vx = v[px];
+    ansp[i] = deflate ? (vx / vy) : (vy / vx);
+  })
+}
 
-SEXP C_inflate4(SEXP From, SEXP To, SEXP nthreads, SEXP Index, SEXP IndexMinIDate) {
+SEXP C_inflate4(SEXP From, SEXP To, SEXP nthreads, SEXP Index, SEXP IndexMinIDate,
+                SEXP Freq) {
   R_xlen_t N_from = xlength(From);
   R_xlen_t N_to = xlength(To);
   R_xlen_t N = N_from >= N_to ? N_from : N_to;
@@ -601,34 +687,63 @@ SEXP C_inflate4(SEXP From, SEXP To, SEXP nthreads, SEXP Index, SEXP IndexMinIDat
   int n_index = length(Index);
   int index_min = asInteger(IndexMinIDate);
   YearMonth index_min_ym = idate2YearMonth(index_min);
+  const unsigned int p_index_min = p_search(index_min);
+  int freq = asInteger(Freq);
+
   const double * index = REAL(Index);
 
   SEXP ans = PROTECT(allocVector(REALSXP, N));
   double * restrict ansp = REAL(ans);
   int nThread = as_nThread(nthreads);
-  // switch(TYPEOF(From)) {
-  // case STRSXP:
-  // {
-  //   const SEXP * xp = STRING_PTR(From);
-  //   switch(TYPEOF(To)) {
-  //   case STRSXP:
-  //   {
-  //     const SEXP * yp = STRING_PTR(From);
-  //     FORLOOP({
-  //       int i_from = p_
-  //     })
-  //   }
-  //   case INTSXP:
-  //
-  //   }
-  // }
-  // case INTSXP:
-  //   switch(TYPEOF(To)) {
-  //   case STRSXP:
-  //   case INTSXP:
-  //   }
-  // }
-  // UNPROTECT(1);
+
+
+  switch(TYPEOF(From)) {
+  case STRSXP:
+    switch(TYPEOF(To)) {
+    case STRSXP:
+      if (xlength(From) == xlength(To)) {
+        inflate4_SS(ansp, N, nThread, STRING_PTR(From), STRING_PTR(To), index, p_index_min, freq);
+      } else {
+        if (xlength(From) == 1) {
+          inflate4_Ss(ansp, N, nThread, STRING_PTR(To), STRING_PTR(From), index, p_index_min, freq, true);
+        } else if (xlength(To) == 1) {
+          inflate4_Ss(ansp, N, nThread, STRING_PTR(From), STRING_PTR(To), index, p_index_min, freq, false);
+        }
+      }
+      break;
+    case INTSXP:
+      if (xlength(From) == xlength(To)) {
+        inflate4_SI(ansp, N, nThread, STRING_PTR(From), INTEGER(To), index, p_index_min, freq, false);
+      } else if (xlength(From) == 1) {
+        inflate4_Si(ansp, N, nThread, STRING_PTR(From), asInteger(To), index, p_index_min, freq, false);
+      } else if (xlength(To) == 1) {
+        inflate4_Is(ansp, N, nThread, INTEGER(To), STRING_PTR(From), index, p_index_min, freq, true);
+      }
+      break;
+    }
+    break;
+  case INTSXP:
+    switch(TYPEOF(To)) {
+    case STRSXP:
+      if (xlength(From) == xlength(To)) {
+        inflate4_SI(ansp, N, nThread, STRING_PTR(To), INTEGER(From), index, p_index_min, freq, true);
+      } else if (xlength(From) == 1) {
+        inflate4_Si(ansp, N, nThread, STRING_PTR(To), asInteger(From), index, p_index_min, freq, true);
+      } else if (xlength(To) == 1) {
+        inflate4_Is(ansp, N, nThread, INTEGER(From), STRING_PTR(To), index, p_index_min, freq, false);
+      }
+      break;
+    case INTSXP:
+      if (xlength(From) == xlength(To)) {
+        inflate4_II(ansp, N, nThread, INTEGER(From), INTEGER(To), index, p_index_min, freq);
+      } else if (xlength(From) == 1) {
+        inflate4_Ii(ansp, N, nThread, INTEGER(From), asInteger(To), index, p_index_min, freq, true);
+      } else if (xlength(To) == 1) {
+        inflate4_Ii(ansp, N, nThread, INTEGER(To), asInteger(From), index, p_index_min, freq, false);
+      }
+    }
+  }
+  UNPROTECT(1);
   return ans;
 }
 
