@@ -1,10 +1,94 @@
 #include "grattanInflator.h"
 
+static void iminmax(int xminmax[2], const int * xp, R_xlen_t N, int nThread, bool narm) {
+  int xmin = xp[0];
+  int xmax = xp[0];
+  if (narm) {
+    if (xmin == NA_INTEGER) {
+      xmin = INT_MAX; // so first non-NA will become candidate min
+    }
+#if defined _OPENMP && _OPENMP >= 201511
+#pragma omp parallel for num_threads(nThread) reduction(min : xmin) reduction(max : xmax)
+#endif
+    for (R_xlen_t i = 1; i < N; ++i) {
+      int xi = xp[i];
+      bool nochange = (xi == NA_INTEGER) || (xi >= xmin && xi <= xmax);
+      if (nochange) continue;
+      xmin = (xi < xmin) ? xi : xmin;
+      xmax = (xi > xmax) ? xi : xmax;
+    }
+  } else {
+#if defined _OPENMP && _OPENMP >= 201511
+#pragma omp parallel for num_threads(nThread) reduction(min : xmin) reduction(max : xmax)
+#endif
+  for (R_xlen_t i = 1; i < N; ++i) {
+    int xi = xp[i];
+    bool nochange = xi >= xmin && xi <= xmax;
+    if (nochange) continue;
+    xmin = (xi < xmin) ? xi : xmin;
+    xmax = (xi > xmax) ? xi : xmax;
+  }
+  xminmax[0] = xmin;
+  xminmax[1] = xmax;
+}
+}
+
+static unsigned char prior_cpi_orig(const char * x) {
+  // known to be 1900-2099, check > 1948-09
+  return 1;
+}
+
+static unsigned char prior_cpi_orig_date(int x) {
+  // known to be 1900-2099, check > 1948-09-01
+  return x >= -7792;
+}
+
+static unsigned char prior_cpi_trim(const char * x) {
+  // known to be 1900-2099, check > 2002
+  return x[0] == '1' || (x[2] == '0' && x[3] < '3');
+}
+
+static unsigned char prior_cpi_trim_date(int x) {
+  // known to be 1900-2099, check > 2002-06-01
+  return x >= 11839;
+}
+
+static unsigned char prior_cpi_seas(const char * x) {
+  // known to be 1900-2099, check > 1986
+  return x[0] == '1' && x[2] <= '8' &&
+    // 1986-12-01 and 1986-87 are ok
+    (x[2] < '8' ||
+      (x[3] < '7' &&
+        (x[5] != '1' || x[6] != '2') &&
+        (x[5] != '8' || x[6] != '7')));
+}
+
+static unsigned char prior_cpi_seas_date(int x) {
+  // known to be 1900-2099, check > 1948-09-01
+  return x >= 6268;
+}
+
+static unsigned char prior_lfi(const char * x) {
+  // before 1979
+  return x[0] == '1' && x[2] <= '7' && (x[2] < '7' || x[3] == '9');
+}
+
+static unsigned char prior_wpi(const char * x) {
+  // before 1997
+  return x[0] == '1' && (x[2] != '9' || x[3] < '7');
+}
+
 
 
 unsigned char isnt_supported_IDate(int x) {
   return (x < MIN_IDATE) | (x > MAX_IDATE);
 }
+
+
+
+
+
+
 
 
 
@@ -114,8 +198,6 @@ static YearMonth NA_YM() {
   return O;
 }
 
-
-
 static void string2YearMonth(unsigned char * err,
                              YearMonth * ans,
                              const char * x, int n) {
@@ -142,12 +224,6 @@ static void string2YearMonth(unsigned char * err,
     break;
   }
 }
-
-
-
-
-
-
 
 static void SEXP2YearMonth(unsigned char * err,
                            YearMonth * ansp,
@@ -678,6 +754,312 @@ static void inflate4_Ii(double * restrict ansp, R_xlen_t N, int nThread,
   })
 }
 
+SEXP C_YearMonthSplit(SEXP x, SEXP xClass, SEXP MonthFY, SEXP nthreads) {
+  R_xlen_t N = xlength(x);
+  int x_class = asInteger(xClass);
+  int month_fy = asInteger(MonthFY);
+  int nThread = as_nThread(nthreads);
+  YearMonth * x_YM = malloc(sizeof(YearMonth) * N);
+  if (x_YM == NULL) {
+    free(x_YM);
+    return R_NilValue;
+  }
+  unsigned char err = 0;
+  SEXP2YearMonth(&err, x_YM, x, x_class, true, true, month_fy, false, "x", nThread);
+  int np = 0;
+  SEXP ans1 = PROTECT(allocVector(INTSXP, N)); ++np;
+  SEXP ans2 = PROTECT(allocVector(INTSXP, N)); ++np;
+
+  int * restrict ans1p = INTEGER(ans1);
+  int * restrict ans2p = INTEGER(ans2);
+
+  FORLOOP({
+    ans1p[i] = x_YM[i].year + MIN_YEAR;
+    ans2p[i] = x_YM[i].month;
+  })
+
+  SEXP ans = PROTECT(allocVector(VECSXP, 2)); ++np;
+  SET_VECTOR_ELT(ans, 0, ans1);
+  SET_VECTOR_ELT(ans, 1, ans2);
+  free(x_YM);
+  UNPROTECT(np);
+  return ans;
+}
+
+static unsigned char err_string(const char * x, int n) {
+  if (!starts_with_yyyy(x)) {
+    return 1;
+  }
+  if (n == 10 && string2month(x) == 15) {
+      return 3;
+  }
+  if (n == 7 && !is_valid_fy_quartet(x)) {
+    return 5;
+  }
+  return 0;
+}
+
+static void check_char(const SEXP * xp, R_xlen_t N, int nThread, const char * var,
+                       const int series) {
+  unsigned char * err[1] = {0};
+  unsigned char o = 0;
+#if defined _OPENMP && _OPENMP >= 201511
+#pragma omp parallel for num_threads(nThread) schedule(static) reduction(| : o)
+#endif
+  for (R_xlen_t i = 0; i < N; ++i) {
+    if (xp[i] == NA_STRING) {
+      continue;
+    }
+    int n = length(xp[i]);
+    const char * xi = CHAR(xp[i]);
+    o |= err_string(xi, n);
+    if (o == 0) {
+      switch(series) {
+      case CPI_ORIG:
+        o |= prior_cpi_orig(xi);
+        break;
+      case CPI_SEAS:
+        o |= prior_cpi_seas(xi);
+        break;
+      case CPI_TRIM:
+        o |= prior_cpi_trim(xi);
+        break;
+      case WPI_ORIG:
+        o |= prior_wpi(xi);
+        break;
+      case LFI_ORIG:
+        o |= prior_lfi(xi);
+        break;
+      }
+    }
+  }
+  if (o != 0) {
+    for (R_xlen_t i = 0; i < N; ++i) {
+      if (xp[i] == NA_STRING) {
+        continue;
+      }
+      const char * xi = CHAR(xp[i]);
+      int nxi = length(xp[i]);
+      if (err_string(xi, nxi)) {
+        error("`%s` contained invalid element:\n\t %s[%lld] = %s",
+              var, var, i + 1, CHAR(xp[i]));
+      }
+      switch(series) {
+      case CPI_ORIG:
+        if (prior_cpi_orig(xi)) {
+          error("`%s` contained element\n\t%s[%lld] = %s\nwhich is prior to the earliest permitted date (%s)",
+                var, var, i + 1, xi, "1948-09-01");
+        }
+        break;
+      case CPI_SEAS:
+        if (prior_cpi_seas(xi)) {
+          error("`%s` contained element\n\t%s[%lld] = %s\nwhich is prior to the earliest permitted date (%s)",
+                var, var, i + 1, xi, "1986-12-01");
+        }
+        break;
+      case CPI_TRIM:
+        if (prior_cpi_trim(xi)) {
+          error("`%s` contained element\n\t%s[%lld] = %s\nwhich is prior to the earliest permitted date (%s)",
+                var, var, i + 1, xi, "2002-03-01");
+        }
+        break;
+      case WPI_ORIG:
+        if (prior_wpi(xi)) {
+          error("`%s` contained element\n\t%s[%lld] = %s\nwhich is prior to the earliest permitted date (%s)",
+                var, var, i + 1, xi, "1997-09-01");
+        }
+        break;
+      case LFI_ORIG:
+        if (prior_lfi(xi)) {
+          error("`%s` contained element\n\t%s[%lld] = %s\nwhich is prior to the earliest permitted date (%s)",
+                var, var, i + 1, xi, "1978-02-01");
+        }
+        break;
+      }
+    }
+  }
+}
+
+static void ierr_if_min(int xmin, int min_allowed, const char * var, const int * xp) {
+  R_xlen_t i = 0;
+  if (xmin < min_allowed) {
+    while (xp[i] >= min_allowed) {
+      ++i;
+    }
+    error("`%s` contained element\n\t%s[%lld] = %d\nwhich is prior to the earliest permitted year (%d)",
+          var, var, i + 1, xmin, min_allowed);
+  }
+}
+
+static void check_int(const int * xp, R_xlen_t N, int nThread, const char * var, const int series) {
+  int xminmax[2] = {0};
+  iminmax(xminmax, xp, N, nThread, true);
+  const int xmin = xminmax[0];
+  R_xlen_t i = -1;
+  switch(series) {
+  case CPI_ORIG:
+    ierr_if_min(xmin, 1948, var, xp);
+    break;
+  case CPI_SEAS:
+    ierr_if_min(xmin, 1986, var, xp);
+    break;
+  case CPI_TRIM:
+    ierr_if_min(xmin, 2002, var, xp);
+    break;
+  case WPI_ORIG:
+    ierr_if_min(xmin, 1997, var, xp);
+    break;
+  case LFI_ORIG:
+    ierr_if_min(xmin, 1978, var, xp);
+    break;
+  }
+  const int xmax = xminmax[1];
+  if (xmax >= MAX_YEAR) {
+    R_xlen_t i = 0;
+    if (xmin > MAX_YEAR) {
+      while (xp[i] >= MAX_YEAR) {
+        ++i;
+      }
+      error("`%s` contained element\n\t%s[%lld] = %d\nwhich is after the latest permitted year (%d)",
+            var, var, i + 1, xmin, MAX_YEAR);
+    }
+  }
+}
+static void check_idate(const int * xp, R_xlen_t N, int nThread, const char * var, const int series) {
+  int xminmax[2] = {0};
+  iminmax(xminmax, xp, N, nThread, true);
+  const int xmin = xminmax[0];
+  R_xlen_t i = -1;
+}
+
+
+
+bool check_above_idate(int idate) {
+  YearMonth YM = idate2YearMonth(idate);
+  return false;
+}
+
+SEXP C_check_input(SEXP x, SEXP Var, SEXP nthreads, SEXP Class, SEXP MinAllowedDate) {
+  if (!isString(Var)) {
+    error("Internal error(C_check_input): Var was type '%s' but must be STRSXP.",
+          type2char(TYPEOF(Var)));
+  }
+  const char * var = CHAR(STRING_ELT(Var, 0));
+  int nThread = as_nThread(nthreads);
+  R_xlen_t N = xlength(x);
+  int xclass = asInteger(Class);
+  int series = asInteger(Series);
+  switch(TYPEOF(x)) {
+  case STRSXP:
+    check_char(STRING_PTR(x), N, nThread, var, series);
+    break;
+  case INTSXP:
+    switch(xclass) {
+    case CLASS_integer:
+      check_int(INTEGER(x), N, nThread, var, series);
+      break;
+    case CLASS_IDate:
+      check_idate(INTEGER(x), N, nThread, var, series);
+      break;
+    }
+  }
+  return R_NilValue;
+}
+
+static bool startsWith_1(const char * x) {
+  return x[0] == '1';
+}
+
+static bool all_Y2K(const SEXP * xp, R_xlen_t N, int nThread) {
+  for (R_xlen_t i = 0; i < N; ++i) {
+    if (startsWith_1(CHAR(xp[i]))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+SEXP C_all_Y2k(SEXP x) {
+  return ScalarLogical(isString(x) && all_Y2K(STRING_PTR(x), xlength(x), 1));
+}
+
+bool anyPrior(const SEXP * xp, R_xlen_t N, const char * y) {
+  register char y2 = y[2];
+  register char y3 = y[3];
+  if (y[0] == '1') {
+    for (R_xlen_t i = 0; i < N; ++i) {
+      const char * xi = CHAR(xp[i]);
+      if (xi[0] == '1') {
+        if (xi[2] > y2) {
+          continue;
+        }
+        if (xi[2] < y2) {
+          return true;
+        }
+        if (xi[3] > y3) {
+          continue;
+        }
+        if (xi[3] < y3) {
+          return true;
+        }
+        if (xi[5] < y[5]) {
+          return true;
+        }
+        if (xi[5] > y[5]) {
+          continue;
+        }
+        if (xi[6] < y[6]) {
+          return true;
+        }
+      }
+    }
+  }
+  for (R_xlen_t i = 0; i < N; ++i) {
+    const char * xi = CHAR(xp[i]);
+    if (xi[0] == '1') {
+      return true;
+    }
+    if (xi[2] > y2) {
+      continue;
+    }
+    if (xi[2] < y2) {
+      return true;
+    }
+    if (xi[3] > y3) {
+      continue;
+    }
+    if (xi[3] < y3) {
+      return true;
+    }
+    if (xi[5] < y[5]) {
+      return true;
+    }
+    if (xi[5] > y[5]) {
+      continue;
+    }
+    if (xi[6] < y[6]) {
+      return true;
+    }
+  }
+  return false;
+}
+
+SEXP C_anyPrior(SEXP x, SEXP y) {
+  if (!isString(x) || !isString(y) || length(y) != 1) {
+    return R_NilValue;
+  }
+  R_xlen_t N = xlength(x);
+  const SEXP * xp = STRING_PTR(x);
+  const char * yp = CHAR(STRING_ELT(y, 0));
+
+  return ScalarLogical(anyPrior(STRING_PTR(x), xlength(x), yp));
+}
+
+
+
+
+
+
 SEXP C_inflate4(SEXP From, SEXP To, SEXP nthreads, SEXP Index, SEXP IndexMinIDate,
                 SEXP Freq) {
   R_xlen_t N_from = xlength(From);
@@ -746,50 +1128,4 @@ SEXP C_inflate4(SEXP From, SEXP To, SEXP nthreads, SEXP Index, SEXP IndexMinIDat
   UNPROTECT(1);
   return ans;
 }
-
-
-
-
-
-SEXP C_YearMonthSplit(SEXP x, SEXP xClass, SEXP MonthFY, SEXP nthreads) {
-  R_xlen_t N = xlength(x);
-  int x_class = asInteger(xClass);
-  int month_fy = asInteger(MonthFY);
-  int nThread = as_nThread(nthreads);
-  YearMonth * x_YM = malloc(sizeof(YearMonth) * N);
-  if (x_YM == NULL) {
-    free(x_YM);
-    return R_NilValue;
-  }
-  unsigned char err = 0;
-  SEXP2YearMonth(&err, x_YM, x, x_class, true, true, month_fy, false, "x", nThread);
-  int np = 0;
-  SEXP ans1 = PROTECT(allocVector(INTSXP, N)); ++np;
-  SEXP ans2 = PROTECT(allocVector(INTSXP, N)); ++np;
-
-  int * restrict ans1p = INTEGER(ans1);
-  int * restrict ans2p = INTEGER(ans2);
-
-  FORLOOP({
-    ans1p[i] = x_YM[i].year + MIN_YEAR;
-    ans2p[i] = x_YM[i].month;
-  })
-
-  SEXP ans = PROTECT(allocVector(VECSXP, 2)); ++np;
-  SET_VECTOR_ELT(ans, 0, ans1);
-  SET_VECTOR_ELT(ans, 1, ans2);
-  free(x_YM);
-  UNPROTECT(np);
-  return ans;
-}
-
-
-
-
-
-
-
-
-
-
 

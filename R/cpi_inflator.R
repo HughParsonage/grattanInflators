@@ -24,6 +24,13 @@ cpi_inflator <- function(from, to,
                          .to_constant_form = FALSE,
                          x = NULL) {
   adjustment <- match.arg(adjustment)
+  .Call("C_check_input", from, "from", 1L, supported_classes(class(from)),
+        switch(adjustment,
+               seasonal = 36045075L,
+               original = 23258472L,
+               trimmed.mean = 36045111L,
+               36045111L),
+        PACKAGE = packageName())
   Index <- GET_SERIES(cpi2series_id(adjustment))
   Inflate(from, to, Index, fy_month = fy_month,
           .from_constant_form = .from_constant_form,
@@ -100,6 +107,17 @@ ensure_date <- function(x) {
   x
 }
 
+.check_input <- function(x, nThread = 1L) {
+  var <- as.character(eval.parent(substitute(substitute(x))))
+  .Call("C_check_input", x, "var", nThread, supported_classes(class(x)),
+        switch(adjustment,
+               seasonal = 36045075L,
+               original = 23258472L,
+               trimmed.mean = 36045111L,
+               36045111L),
+        PACKAGE = packageName())
+}
+
 
 
 
@@ -120,6 +138,16 @@ cpi_inflator3 <- function(from, to) {
   index_min_date <- index_dates[1L]
   freq <- date2freq(index_dates)
   .Call("C_Inflate2", from, to, .subset2(index, "value"), index_min_date, freq, 1L, PACKAGE = "grattanInflators")
+}
+
+cpi_inflator4 <- function(from, to, nThread = 1L) {
+  index <- GET_SERIES(cpi2series_id("original"))
+  index_dates <- as.IDate(.subset2(index, "date"))
+  index_min_date <- index_dates[1L]
+  freq <- date2freq(index_dates)
+  .Call("C_inflate4", from, to, nThread, .subset2(index, "value"),
+        index_min_date, freq,
+        PACKAGE = packageName())
 }
 
 

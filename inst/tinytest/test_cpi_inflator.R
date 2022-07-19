@@ -21,3 +21,16 @@ expect_equal(cpi_inflator(xd, "2015-16"),
              tolerance = 0.001, scale = 1)
 
 expect_equal(cpi_inflator("2012-13", "2013-14"), 1.0295, tolerance = 0.001, scale = 1)
+
+
+expect_error(cpi_inflator("1986-11-01", "1997-01-01", adjustment = "seasonal"), "earliest")
+expect_error(cpi_inflator(c("1986-12-01", "1986-11-01"),
+                          "1997-01-01",
+                          adjustment = "seasonal"),
+             "from[2]",
+             fixed = TRUE)
+
+
+
+
+
