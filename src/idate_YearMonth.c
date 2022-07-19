@@ -305,7 +305,7 @@ unsigned int p_search_string10(const char * x) {
 unsigned int p_search_string7_unsafe(const char * x) {
   int y = string2fy(x);
   y -= MIN_YEAR;
-  return 12 * y + 9; // FY
+  return 12 * y + 18; // FY
 }
 
 

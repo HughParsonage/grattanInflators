@@ -116,9 +116,7 @@ int is_leap_year(int year) {
   return 1;
 }
 
-static bool starts_with_yyyy(const char * x) {
-  return (x[0] == '1' || x[0] == '2') && isdigit(x[1]) && isdigit(x[2]) && isdigit(x[3]);
-}
+
 
 
 int string2year(const char * x) {
@@ -131,7 +129,7 @@ int string2year(const char * x) {
 }
 
 
-static int string2month(const char * x) {
+int string2month(const char * x) {
   // can't see a faster way to both validate and mark
   switch(x[5]) {
   case '0':
@@ -174,22 +172,7 @@ static int string2month(const char * x) {
   return 15;
 }
 
-static bool is_valid_fy_quartet(const char * z) {
-  register char u = z[2], v = z[3], x = z[5], y = z[6];
-  if (!isdigit(u) || !isdigit(v) || !isdigit(x) || !isdigit(y)) {
-    return false;
-  }
 
-  if (v == '9') {
-    if (u == '9') {
-      return x == '0' && y == '0';
-    }
-    // 19-20
-    // uv-xy
-    return x == u + 1 && y == '0';
-  }
-  return x == u && y == v + 1;
-}
 
 static YearMonth NA_YM() {
   YearMonth O;
@@ -201,12 +184,6 @@ static YearMonth NA_YM() {
 static void string2YearMonth(unsigned char * err,
                              YearMonth * ans,
                              const char * x, int n) {
-  if ((n != 10 && n != 7) || !starts_with_yyyy(x)) {
-    ans->year = 127;
-    ans->month = 15;
-    *err = 1;
-    return;
-  }
   ans->year = string2year(x);
 
   switch(n) {
@@ -214,13 +191,9 @@ static void string2YearMonth(unsigned char * err,
     ans->month = string2month(x);
     break;
   case 7:
-    if (is_valid_fy_quartet(x)) {
-      ans->year++;
-      ans->month = 3;
-    } else {
-      ans->month = 15;
-      *err = 2;
-    }
+    ans->year++;
+    ans->month = 3;
+
     break;
   }
 }
@@ -786,18 +759,7 @@ SEXP C_YearMonthSplit(SEXP x, SEXP xClass, SEXP MonthFY, SEXP nthreads) {
   return ans;
 }
 
-static unsigned char err_string(const char * x, int n) {
-  if (!starts_with_yyyy(x)) {
-    return 1;
-  }
-  if (n == 10 && string2month(x) == 15) {
-      return 3;
-  }
-  if (n == 7 && !is_valid_fy_quartet(x)) {
-    return 5;
-  }
-  return 0;
-}
+
 
 static void check_char(const SEXP * xp, R_xlen_t N, int nThread, const char * var,
                        const int series) {
@@ -812,7 +774,7 @@ static void check_char(const SEXP * xp, R_xlen_t N, int nThread, const char * va
     }
     int n = length(xp[i]);
     const char * xi = CHAR(xp[i]);
-    o |= err_string(xi, n);
+    // o |= err_string(xi, n);
     if (o == 0) {
       switch(series) {
       case CPI_ORIG:
@@ -932,57 +894,6 @@ static void check_idate(const int * xp, R_xlen_t N, int nThread, const char * va
   R_xlen_t i = -1;
 }
 
-
-
-bool check_above_idate(int idate) {
-  YearMonth YM = idate2YearMonth(idate);
-  return false;
-}
-
-SEXP C_check_input(SEXP x, SEXP Var, SEXP nthreads, SEXP Class, SEXP MinAllowedDate) {
-  if (!isString(Var)) {
-    error("Internal error(C_check_input): Var was type '%s' but must be STRSXP.",
-          type2char(TYPEOF(Var)));
-  }
-  const char * var = CHAR(STRING_ELT(Var, 0));
-  int nThread = as_nThread(nthreads);
-  R_xlen_t N = xlength(x);
-  int xclass = asInteger(Class);
-  int series = asInteger(Series);
-  switch(TYPEOF(x)) {
-  case STRSXP:
-    check_char(STRING_PTR(x), N, nThread, var, series);
-    break;
-  case INTSXP:
-    switch(xclass) {
-    case CLASS_integer:
-      check_int(INTEGER(x), N, nThread, var, series);
-      break;
-    case CLASS_IDate:
-      check_idate(INTEGER(x), N, nThread, var, series);
-      break;
-    }
-  }
-  return R_NilValue;
-}
-
-static bool startsWith_1(const char * x) {
-  return x[0] == '1';
-}
-
-static bool all_Y2K(const SEXP * xp, R_xlen_t N, int nThread) {
-  for (R_xlen_t i = 0; i < N; ++i) {
-    if (startsWith_1(CHAR(xp[i]))) {
-      return false;
-    }
-  }
-  return true;
-}
-
-SEXP C_all_Y2k(SEXP x) {
-  return ScalarLogical(isString(x) && all_Y2K(STRING_PTR(x), xlength(x), 1));
-}
-
 bool anyPrior(const SEXP * xp, R_xlen_t N, const char * y) {
   register char y2 = y[2];
   register char y3 = y[3];
@@ -1054,12 +965,6 @@ SEXP C_anyPrior(SEXP x, SEXP y) {
 
   return ScalarLogical(anyPrior(STRING_PTR(x), xlength(x), yp));
 }
-
-
-
-
-
-
 SEXP C_inflate4(SEXP From, SEXP To, SEXP nthreads, SEXP Index, SEXP IndexMinIDate,
                 SEXP Freq) {
   R_xlen_t N_from = xlength(From);

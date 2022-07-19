@@ -52,6 +52,8 @@ typedef struct {
 
 
 
+
+
 // validate dates are 1948-07-01 to 2075-12-31 (approximately 127 years)
 #define MAX_IDATE 38715
 #define MIN_IDATE -7854
@@ -83,16 +85,19 @@ typedef struct {
 #define ERR_IDATE_OUT_OF_RANGE 2
 
 
+int string2month(const char * x);
 // YearMonth
 // extern int IDATE_BY_YEARMONTH_SINCE_1948_JAN_1ST[1536];
 YearMonth idate2YearMonth(int x);
 unsigned int p_search(int x);
 unsigned int p_search_string10(const char * x);
 unsigned int p_search_string7_unsafe(const char * x);
-// ensure_date.c
 
 // errif.c
 void prohibit_vector_recyling(SEXP x, SEXP y, const char * wx, const char * wy);
+
+// mindate.c
+void err_if_below_mindate(const SEXP * xp, R_xlen_t N, int minDate, const char * var);
 
 // omp-diagnose.c
 int as_nThread(SEXP x);
