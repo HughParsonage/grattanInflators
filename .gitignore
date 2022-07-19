@@ -9,3 +9,4 @@
 !*.Rd
 !*.tsv
 !*.Rproj
+!README.Rmd
