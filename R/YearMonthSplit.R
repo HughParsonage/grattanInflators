@@ -3,6 +3,7 @@
 
 YearMonthSplit <- function(x, nThread = 1L, fy_month = 6L) {
   x_class <- supported_classes(class(x))
+  .check_input(x, as.IDate("1948-01-01"), nThread)
   .Call("C_YearMonthSplit", x, x_class, fy_month, nThread, PACKAGE = packageName())
 }
 

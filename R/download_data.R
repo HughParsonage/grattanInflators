@@ -73,7 +73,7 @@ fread_extdata_series_id <- function(series_id) {
   ans <- fread(extdata_series_id(series_id), sep = "\t")
   stopifnot(hasName(ans, "date"))
   stopifnot(hasName(ans, "value"))
-  setnafill(ans, "nocb")
+  ans[complete.cases(ans)]
 }
 
 file_splitter <- function(series_id) {

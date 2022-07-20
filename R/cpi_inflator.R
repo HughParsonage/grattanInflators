@@ -39,7 +39,7 @@ cpi2series_id <- function(adjustment) {
 }
 
 date2freq <- function(date) {
-  d_months <- month(date[2]) - month(date[1])
+  d_months <- (month(date[2]) - month(date[1])) %% 12L
   if (d_months == 3L) {
     return(4L)
   }
@@ -64,6 +64,8 @@ Inflate <- function(from, to,
                     nThread = getOption("grattanInflators.nThread", 1L)) {
   index_dates <- as.IDate(.subset2(index, "date"))
   index_min_date <- index_dates[1L]
+  .check_input(from, index_min_date, nThread = nThread)
+  .check_input(to, index_min_date, nThread = nThread)
   .Call("C_Inflate",
         ensure_date(from),
         ensure_date(to),
@@ -100,11 +102,6 @@ ensure_date <- function(x) {
   x
 }
 
-
-
-
-
-
 cpi_inflator2 <- function(from, to) {
   from_i <- as.integer(as.IDate(from)) - as.integer(as.IDate("1948-09-01"))
   to_i <- as.integer(as.IDate(to)) - as.integer(as.IDate("1948-09-01"))
@@ -116,22 +113,6 @@ cpi_inflator2 <- function(from, to) {
   to_value / from_value
 }
 
-cpi_inflator3 <- function(from, to) {
-  index <- GET_SERIES(cpi2series_id("original"))
-  index_dates <- as.IDate(.subset2(index, "date"))
-  index_min_date <- index_dates[1L]
-  freq <- date2freq(index_dates)
-  .Call("C_Inflate2", from, to, .subset2(index, "value"), index_min_date, freq, 1L, PACKAGE = "grattanInflators")
-}
 
-cpi_inflator4 <- function(from, to, nThread = 1L) {
-  index <- GET_SERIES(cpi2series_id("original"))
-  index_dates <- as.IDate(.subset2(index, "date"))
-  index_min_date <- index_dates[1L]
-  freq <- date2freq(index_dates)
-  .Call("C_inflate4", from, to, nThread, .subset2(index, "value"),
-        index_min_date, freq,
-        PACKAGE = packageName())
-}
 
 

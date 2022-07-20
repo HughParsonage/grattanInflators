@@ -78,12 +78,15 @@ void check_intsxp(const int * xp, R_xlen_t N, int nThread, int xclass, int min_d
       xmin = xp[i];
     }
   }
-  if (xclass == CLASS_Date) {
+  if (xclass == CLASS_Date || xclass == CLASS_IDate) {
     if (xmin < min_date) {
       for (R_xlen_t i = 0; i < N; ++i) {
         if (xp[i] < min_date && xp[i] != NA_INTEGER) {
+          if (xp[i] < MIN_IDATE) {
+            error("%s[%lld] is outside the permitted range (1948-2075).");
+          }
           YearMonth YMi = idate2YearMonth(xp[i]);
-          error("`%s[%lld] = %d-%d-01` before the earliest allowable date.",
+          error("`%s[%lld] = %d-%02d-01` before the earliest allowable date.",
                 var, i + 1, YMi.year + MIN_YEAR, YMi.month);
         }
       }
@@ -116,6 +119,7 @@ SEXP C_check_input(SEXP x, SEXP Var, SEXP Class, SEXP minDate, SEXP nthreads) {
   int nThread = as_nThread(nthreads);
   const int min_date = asInteger(minDate);
   int xclass = asInteger(Class);
+
   switch(TYPEOF(x)) {
   case STRSXP:
     check_strsxp(STRING_PTR(x), xlength(x), var, min_date, nThread);
