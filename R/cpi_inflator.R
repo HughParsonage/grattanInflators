@@ -18,6 +18,8 @@
 #' @param x The vector that will be inflated in-place. If \code{NULL},
 #' the default, the return vector is simply the inflation factor for `from`.
 #'
+#' @param nThread Number of threads to use.
+#'
 #' @export
 
 cpi_inflator <- function(from, to,
@@ -25,12 +27,14 @@ cpi_inflator <- function(from, to,
                          fy_month = 3L,
                          .from_constant_form = FALSE,
                          .to_constant_form = FALSE,
-                         x = NULL) {
+                         x = NULL,
+                         nThread = getOption("grattanInflators.nThread", 1L)) {
   adjustment <- match.arg(adjustment)
   Index <- GET_SERIES(cpi2series_id(adjustment))
   Inflate(from, to, Index, fy_month = fy_month,
           .from_constant_form = .from_constant_form,
-          .to_constant_form = .to_constant_form)
+          .to_constant_form = .to_constant_form,
+          nThread = nThread)
 }
 
 cpi2series_id <- function(adjustment) {

@@ -64,7 +64,7 @@ static void check_valid_strings(const SEXP * xp, R_xlen_t N, int nThread, const 
 
 void check_strsxp(const SEXP * xp, R_xlen_t N, const char * var, const int min_date, int nThread) {
   check_valid_strings(xp, N, nThread, var);
-  err_if_below_mindate(xp, N, min_date, var);
+  err_if_below_mindate(xp, N, min_date, var, nThread);
 }
 
 void check_intsxp(const int * xp, R_xlen_t N, int nThread, int xclass, int min_date,

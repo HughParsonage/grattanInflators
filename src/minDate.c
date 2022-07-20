@@ -85,18 +85,32 @@ unsigned int char8_2int(char yyyy_mm[8]) {
   return o;
 }
 
-void err_if_below_mindate(const SEXP * xp, R_xlen_t N, int minDate, const char * var) {
+void err_if_below_mindate(const SEXP * xp, R_xlen_t N, int minDate, const char * var, int nThread) {
   char yyyy_mm[8] = {0};
   idate2char8(yyyy_mm, minDate);
-
+  unsigned char o = 0;
+#if defined _OPENMP && _OPENMP >= 201511
+#pragma omp parallel for num_threads(nThread) reduction(| : o)
+#endif
   for (R_xlen_t i = 0; i < N; ++i) {
     if (xp[i] == NA_STRING) {
       continue;
     }
     const char * xi = CHAR(xp[i]);
     if (leqcc1(xi, yyyy_mm, false)) {
-      error("`%s[%lld] = '%s'` which is prior to '%s-01', the earliest allowed date.",
-            var, i + 1, xi, (const char *)yyyy_mm);
+      o = 1;
+    }
+  }
+  if (o != 0) {
+    for (R_xlen_t i = 0; i < N; ++i) {
+      if (xp[i] == NA_STRING) {
+        continue;
+      }
+      const char * xi = CHAR(xp[i]);
+      if (leqcc1(xi, yyyy_mm, false)) {
+        error("`%s[%lld] = '%s'` which is prior to '%s-01', the earliest allowed date.",
+              var, i + 1, xi, (const char *)yyyy_mm);
+      }
     }
   }
 }

@@ -1,7 +1,7 @@
 ---
 title: "README"
 author: "Hugh Parsonage"
-date: '2022-07-19'
+date: "`r Sys.Date()`"
 output: 
   md_document:
     variant: markdown_github
@@ -23,11 +23,23 @@ Utility package for CPI and other inflators.
 x <- rep_len(fy::yr2fy(1999:2020), 1e7)
 
 bench::system_time(grattan::cpi_inflator(, x, "2019-20"))
-bench::system_time(grattanInflators::cpi_inflator(x, "2019-20"))
+bench::system_time(cpi_inflator(x, "2019-20"))
+bench::system_time(cpi_inflator(x, "2019-20", nThread = 4L))
 
 y <- dqrng::dqsample(x)
 bench::system_time(grattan::cpi_inflator(, x, y))
-bench::system_time(grattanInflators::cpi_inflator(x, y))
+bench::system_time(cpi_inflator(x, y, nThread = 4L))
+
+x <- rep_len(x, 1e8)
+bench::system_time(cpi_inflator(x, "2019-20", nThread = 4L))
+x <- y <- NULL
 ```
 
+```{r bench2}
+x <- seq(as.Date("1999-01-01"), as.Date("2020-01-01"), by = "1 day")
+x <- rep_len(x, 1e7)
+bench::system_time(cpi_inflator(x, "2019-01-01"))
+x <- rep_len(x, 1e8)
+bench::system_time(cpi_inflator(x, "2019-01-01", nThread = 4L))
+```
 

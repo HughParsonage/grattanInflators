@@ -97,7 +97,7 @@ unsigned int p_search_string7_unsafe(const char * x);
 void prohibit_vector_recyling(SEXP x, SEXP y, const char * wx, const char * wy);
 
 // mindate.c
-void err_if_below_mindate(const SEXP * xp, R_xlen_t N, int minDate, const char * var);
+void err_if_below_mindate(const SEXP * xp, R_xlen_t N, int minDate, const char * var, int nThread);
 
 // omp-diagnose.c
 int as_nThread(SEXP x);
