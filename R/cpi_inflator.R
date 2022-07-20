@@ -15,6 +15,9 @@
 #' mixtures of formats will raise an error. This is useful
 #' to distinguish financial years from year-month formats (e.g. 2008-09).
 #'
+#' @param x The vector that will be inflated in-place. If \code{NULL},
+#' the default, the return vector is simply the inflation factor for `from`.
+#'
 #' @export
 
 cpi_inflator <- function(from, to,

@@ -12,14 +12,14 @@ bench::system_time(grattan::cpi_inflator(, x, "2019-20"))
 ```
 
     ## process    real 
-    ##   453ms   346ms
+    ##   609ms   452ms
 
 ``` r
 bench::system_time(grattanInflators::cpi_inflator(x, "2019-20"))
 ```
 
     ## process    real 
-    ##   375ms   440ms
+    ##   281ms   290ms
 
 ``` r
 y <- dqrng::dqsample(x)
@@ -27,11 +27,11 @@ bench::system_time(grattan::cpi_inflator(, x, y))
 ```
 
     ## process    real 
-    ##   23.2s   20.2s
+    ##   24.8s   20.9s
 
 ``` r
 bench::system_time(grattanInflators::cpi_inflator(x, y))
 ```
 
     ## process    real 
-    ##   375ms   378ms
+    ##   438ms   433ms

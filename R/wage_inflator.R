@@ -1,7 +1,7 @@
 #' Wage inflator
 #' @description Uses the Wage Price Index
 #'
-#' @param from,to
+#' @param from,to Times for which the inflator is desired.
 #'
 #' @export
 wage_inflator <- function(from, to) {

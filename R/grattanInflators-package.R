@@ -1,9 +1,11 @@
 #'
 #' @import data.table
 #' @importFrom fy fy2date
+#' @importFrom stats complete.cases
 #' @importFrom utils packageName
 #' @importFrom utils download.file
 #' @importFrom utils hasName
+#' @importFrom utils head
 #' @useDynLib grattanInflators, .registration=TRUE
 #' @keywords internal
 "_PACKAGE"

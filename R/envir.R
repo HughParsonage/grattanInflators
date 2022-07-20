@@ -23,6 +23,7 @@ EXISTS <- function(x) {
 
 CLEAR_ENV <- function() {
   rm(list = ls(envir = ENV()), envir = ENV())
+  options("grattanInflators.env" = NULL)
 }
 
 ENV <- function() {

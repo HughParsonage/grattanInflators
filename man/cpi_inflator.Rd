@@ -31,6 +31,9 @@ each of constant form? That is, are they all consistently dates,
 financial years or are they (possibly) a mixture? If \code{TRUE},
 mixtures of formats will raise an error. This is useful
 to distinguish financial years from year-month formats (e.g. 2008-09).}
+
+\item{x}{The vector that will be inflated in-place. If \code{NULL},
+the default, the return vector is simply the inflation factor for `from`.}
 }
 \description{
 CPI inflator

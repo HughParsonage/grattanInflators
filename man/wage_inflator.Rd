@@ -7,7 +7,7 @@
 wage_inflator(from, to)
 }
 \arguments{
-\item{from, to}{}
+\item{from, to}{Times for which the inflator is desired.}
 }
 \description{
 Uses the Wage Price Index
