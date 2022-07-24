@@ -86,8 +86,10 @@ typedef struct {
 
 
 int string2month(const char * x);
+
+// check_input
+void check_strsxp(const SEXP * xp, R_xlen_t N, const char * var, const int min_date, int nThread);
 // YearMonth
-// extern int IDATE_BY_YEARMONTH_SINCE_1948_JAN_1ST[1536];
 YearMonth idate2YearMonth(int x);
 unsigned int p_search(int x);
 unsigned int p_search_string10(const char * x);

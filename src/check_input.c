@@ -4,6 +4,19 @@ bool starts_with_yyyy(const char * x) {
   return (x[0] == '1' || x[0] == '2') && isdigit(x[1]) && isdigit(x[2]) && isdigit(x[3]);
 }
 
+bool is_leap_yr(int yr) {
+  if (yr < 0 || yr % 4) {
+    return 0;
+  }
+  if (yr % 100) {
+    return 0;
+  }
+  if (yr % 400) {
+    return 1;
+  }
+  return 1;
+}
+
 static bool is_valid_fy_quartet(const char * z) {
   register char u = z[2], v = z[3], x = z[5], y = z[6];
   if (!isdigit(u) || !isdigit(v) || !isdigit(x) || !isdigit(y)) {
@@ -33,6 +46,24 @@ static unsigned char err_string(const char * x, int n) {
   }
   return 0;
 }
+
+
+
+unsigned char valid_mday(const char * x, int yr, int month) {
+  static int MDAYS[13] = {0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  if (!isdigit(x[8]) || !isdigit(x[9])) {
+    return 0;
+  }
+  int mday = 10 * (x[8] - '0') + (x[9] - '0');
+  if (mday == 0 || month > 12 || mday > MDAYS[month]) {
+    return 0;
+  }
+  if (month == 2 && !is_leap_yr(yr) && mday == 29) {
+    return 0;
+  }
+  return 1;
+}
+
 
 static void check_valid_strings(const SEXP * xp, R_xlen_t N, int nThread, const char * var) {
   unsigned char o = 0;

@@ -264,13 +264,23 @@ static int string2fy(const char * x) {
 }
 
 // ignores date
-SEXP C_fastIDate(SEXP x, SEXP nthreads) {
+SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP Check, SEXP nthreads) {
   int nThread = as_nThread(nthreads);
   if (!isString(x)) {
     error("Expected a STRSXP.");
   }
+  const bool incl_day = asLogical(IncludeDay);
+  const int check = asInteger(Check);
   const SEXP * xp = STRING_PTR(x);
   R_xlen_t N = xlength(x);
+  if (check >= 1) {
+    // void check_strsxp(const SEXP * xp, R_xlen_t N, const char * var, const int min_date, int nThread)
+    check_strsxp(xp, N, "x", MIN_IDATE, nThread);
+  }
+  if (check >= 2) {
+
+  }
+
   SEXP ans = PROTECT(allocVector(INTSXP, N));
   int * restrict ansp = INTEGER(ans);
   FORLOOP({
@@ -280,6 +290,7 @@ SEXP C_fastIDate(SEXP x, SEXP nthreads) {
       ansp[i] = NA_INTEGER;
       continue;
     }
+    ansp[i] = 0;
     int year_i = string102year(xi);
     unsigned int month_i = string102month(xi);
     if (year_i < 1948 || year_i > 2075 || month_i > 12) {
@@ -287,6 +298,9 @@ SEXP C_fastIDate(SEXP x, SEXP nthreads) {
       continue;
     }
     ansp[i] = ARR[12 * (year_i - 1948) + (month_i - 1)];
+    if (incl_day) {
+      ansp[i] += 10 * (xi[8] - '0') + (xi[9] - '0') - 1;
+    }
   })
   UNPROTECT(1);
   return ans;
