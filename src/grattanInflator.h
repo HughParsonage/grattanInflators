@@ -105,11 +105,9 @@ void err_if_below_mindate(const SEXP * xp, R_xlen_t N, int minDate, const char *
 int as_nThread(SEXP x);
 
 // SEXP2YearMonth.c
-void SEXP2YearMonth(unsigned char * err,
-                    YearMonth * ansp,
+void SEXP2YearMonth(YearMonth * ansp,
                     SEXP x,
                     int x_class,
-                    bool constant_only, bool prefer_fy,
                     int fy_month,
                     bool check_day, const char * var, int nThread) ;
 

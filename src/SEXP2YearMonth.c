@@ -56,11 +56,9 @@ int string2month(const char * x) {
   return 15;
 }
 
-static void string2YearMonth(unsigned char * err,
-                             YearMonth * ans,
+static void string2YearMonth(YearMonth * ans,
                              const char * x, int n) {
   ans->year = string2year(x);
-
   switch(n) {
   case 10:
     ans->month = string2month(x);
@@ -84,11 +82,9 @@ unsigned char any_outside_daterange(const int * xp, R_xlen_t N, int nThread) {
   return o;
 }
 
-void SEXP2YearMonth(unsigned char * err,
-                    YearMonth * ansp,
+void SEXP2YearMonth(YearMonth * ansp,
                     SEXP x,
                     int x_class,
-                    bool constant_only, bool prefer_fy,
                     int fy_month,
                     bool check_day, const char * var, int nThread) {
   if (ansp == NULL) {
@@ -109,7 +105,6 @@ void SEXP2YearMonth(unsigned char * err,
     case CLASS_Date:
     case CLASS_IDate:
       if (any_outside_daterange(xp, N, nThread)) {
-        err[0] = ERR_IDATE_OUT_OF_RANGE;
 
       } else {
         FORLOOP({
@@ -129,16 +124,11 @@ void SEXP2YearMonth(unsigned char * err,
     return;
   }
   const SEXP * xp = STRING_PTR(x);
-  unsigned char err_ = err[0];
 
-#if defined _OPENMP && _OPENMP >= 201511
-#pragma omp parallel for num_threads(nThread) reduction(| : err_)
-#endif
-  for (R_xlen_t i = 0; i < N; ++i) {
+  FORLOOP({
     YearMonth O;
-    string2YearMonth(&err_, &O, CHAR(xp[i]), length(xp[i]));
+    string2YearMonth(&O, CHAR(xp[i]), length(xp[i]));
     ansp[i] = O;
-  }
-  err[0] = err_;
+  })
 }
 

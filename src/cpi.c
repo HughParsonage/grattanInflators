@@ -195,8 +195,6 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
   if (!isReal(Index)) {
     error("Index wasn't REALSXP which is not supported.");
   }
-  bool from_constant_form = asLogical(FromConstantForm);
-  bool to_constant_from = asLogical(ToConstantForm);
 
 
   YearMonth * FromDate = malloc(sizeof(YearMonth) * N_from);
@@ -214,34 +212,10 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
   const double * index = REAL(Index);
   int freq = index_freq2int(IndexFreq);
 
-  unsigned char err = 0;
 
-  SEXP2YearMonth(&err, FromDate, From, from_class, from_constant_form, true, MonthFY, false, "from", nThread);
-  if (err != 0) {
-    R_xlen_t j_err = find_err(FromDate, N_from);
-    free(FromDate);
-    free(ToDate);
-    switch(err) {
-    case ERR_BADFORM:
-      error("`from` contained element '%s' at position %lld, not in valid form.",
-            CHAR(STRING_ELT(From, j_err)), j_err);
-    case ERR_IDATE_OUT_OF_RANGE:
-      error("`from` contained element not in valid range.");
-    }
-  }
-  SEXP2YearMonth(&err, ToDate, To, to_class, to_constant_from, true, MonthFY, false, "to", nThread);
-  if (err != 0) {
-    R_xlen_t j_err = find_err(ToDate, N_to);
-    free(FromDate);
-    free(ToDate);
-    switch(err) {
-    case ERR_BADFORM:
-      error("`to` contained element '%s' at position %lld, not in valid form.",
-            CHAR(STRING_ELT(From, j_err)), j_err);
-    case ERR_IDATE_OUT_OF_RANGE:
-      error("`to` contained element not in valid range.");
-    }
-  }
+  SEXP2YearMonth(FromDate, From, from_class, MonthFY, false, "from", nThread);
+
+  SEXP2YearMonth(ToDate, To, to_class, MonthFY, false, "to", nThread);
 
   SEXP ans = PROTECT(isNull(x) ? allocVector(REALSXP, N) : x);
   double * restrict ansp = REAL(ans);

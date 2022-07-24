@@ -25,15 +25,12 @@
 cpi_inflator <- function(from, to,
                          adjustment = c("seasonal", "original", "trimmed.mean"),
                          fy_month = 3L,
-                         .from_constant_form = FALSE,
-                         .to_constant_form = FALSE,
+
                          x = NULL,
                          nThread = getOption("grattanInflators.nThread", 1L)) {
   adjustment <- match.arg(adjustment)
   Index <- GET_SERIES(cpi2series_id(adjustment))
   Inflate(from, to, Index, fy_month = fy_month,
-          .from_constant_form = .from_constant_form,
-          .to_constant_form = .to_constant_form,
           nThread = nThread)
 }
 

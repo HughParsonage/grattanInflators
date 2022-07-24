@@ -10,8 +10,7 @@ SEXP C_YearMonthSplit(SEXP x, SEXP xClass, SEXP MonthFY, SEXP nthreads) {
     free(x_YM);
     return R_NilValue;
   }
-  unsigned char err = 0;
-  SEXP2YearMonth(&err, x_YM, x, x_class, true, true, month_fy, false, "x", nThread);
+  SEXP2YearMonth(x_YM, x, x_class, month_fy, false, "x", nThread);
   int np = 0;
   SEXP ans1 = PROTECT(allocVector(INTSXP, N)); ++np;
   SEXP ans2 = PROTECT(allocVector(INTSXP, N)); ++np;
