@@ -10,7 +10,7 @@
 #' while \code{fy_month = 6} means Jun-2016.
 #'
 #'
-#' @param x The vector that will be inflated in-place. If \code{NULL},
+#' @param x (Advanced) A vector that will be inflated in-place. If \code{NULL},
 #' the default, the return vector is simply the inflation factor for `from`.
 #'
 #' @param check \code{integer(1)} If \code{0L}, no checks are performed, and

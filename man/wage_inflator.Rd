@@ -8,6 +8,7 @@ wage_inflator(
   from,
   to,
   check = 1L,
+  x = NULL,
   nThread = getOption("grattanInflators.nThread", 1L)
 )
 }

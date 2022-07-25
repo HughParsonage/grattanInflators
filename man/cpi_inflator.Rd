@@ -26,7 +26,7 @@ financial years, the month is the month of the financial year,
 so for example \code{fy_month = 9} and "2015-16" means Sep-2015,
 while \code{fy_month = 6} means Jun-2016.}
 
-\item{x}{The vector that will be inflated in-place. If \code{NULL},
+\item{x}{(Advanced) A vector that will be inflated in-place. If \code{NULL},
 the default, the return vector is simply the inflation factor for `from`.}
 
 \item{check}{\code{integer(1)} If \code{0L}, no checks are performed, and

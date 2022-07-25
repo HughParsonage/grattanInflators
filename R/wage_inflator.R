@@ -11,10 +11,12 @@
 #' @export
 wage_inflator <- function(from, to,
                           check = 1L,
+                          x = NULL,
                           nThread = getOption("grattanInflators.nThread", 1L)) {
   Index <- GET_SERIES(wpi2series_id("trend"))
-  Inflate(from, to, Index = Index,
+  Inflate(from, to, index = Index,
           check = check,
+          x = x,
           nThread = nThread)
 }
 
