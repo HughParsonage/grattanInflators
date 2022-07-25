@@ -9,9 +9,8 @@ cpi_inflator(
   to,
   adjustment = c("seasonal", "original", "trimmed.mean"),
   fy_month = 3L,
-  .from_constant_form = FALSE,
-  .to_constant_form = FALSE,
   x = NULL,
+  check = 1L,
   nThread = getOption("grattanInflators.nThread", 1L)
 )
 }
@@ -27,14 +26,12 @@ financial years, the month is the month of the financial year,
 so for example \code{fy_month = 9} and "2015-16" means Sep-2015,
 while \code{fy_month = 6} means Jun-2016.}
 
-\item{.from_constant_form, .to_constant_form}{Are \code{from}, \code{to}
-each of constant form? That is, are they all consistently dates,
-financial years or are they (possibly) a mixture? If \code{TRUE},
-mixtures of formats will raise an error. This is useful
-to distinguish financial years from year-month formats (e.g. 2008-09).}
-
 \item{x}{The vector that will be inflated in-place. If \code{NULL},
 the default, the return vector is simply the inflation factor for `from`.}
+
+\item{check}{\code{integer(1)} If \code{0L}, no checks are performed, and
+clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
+an error is performed for bad input; \code{check = 2L} is more thorough.}
 
 \item{nThread}{Number of threads to use.}
 }

@@ -4,10 +4,21 @@
 \alias{wage_inflator}
 \title{Wage inflator}
 \usage{
-wage_inflator(from, to)
+wage_inflator(
+  from,
+  to,
+  check = 1L,
+  nThread = getOption("grattanInflators.nThread", 1L)
+)
 }
 \arguments{
 \item{from, to}{Times for which the inflator is desired.}
+
+\item{check}{\code{integer(1)} If \code{0L}, no checks are performed, and
+clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
+an error is performed for bad input; \code{check = 2L} is more thorough.}
+
+\item{nThread}{Number of threads to use.}
 }
 \description{
 Uses the Wage Price Index

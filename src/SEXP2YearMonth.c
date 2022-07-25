@@ -104,13 +104,9 @@ void SEXP2YearMonth(YearMonth * ansp,
       break;
     case CLASS_Date:
     case CLASS_IDate:
-      if (any_outside_daterange(xp, N, nThread)) {
-
-      } else {
         FORLOOP({
           ansp[i] = idate2YearMonth(xp[i]);
         })
-      }
       break;
     case CLASS_integer:
       FORLOOP({

@@ -24,12 +24,18 @@ expect_equal(cpi_inflator("2012-13", "2013-14"), 1.0295, tolerance = 0.001, scal
 
 
 expect_error(cpi_inflator("1986-11-01", "1997-01-01", adjustment = "seasonal"), "earliest")
-expect_error(cpi_inflator("1886-11-01", "1997-01-01", adjustment = "seasonal"), "earliest")
+expect_error(cpi_inflator("1949-11-01", "1997-01-01", adjustment = "seasonal"), "earliest")
+expect_error(cpi_inflator("1886-11-01", "1997-01-01", adjustment = "seasonal"), "Year")
 expect_error(cpi_inflator(c("1986-12-01", "1986-11-01"),
                           "1997-01-01",
                           adjustment = "seasonal"),
              "from[2]",
              fixed = TRUE)
+
+x <- as.double(1:5)
+y <- x * cpi_inflator("2015-16", "2016-17")
+cpi_inflator("2015-16", "2016-17", x = x)
+expect_equal(x, y)
 
 
 

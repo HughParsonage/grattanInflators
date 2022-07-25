@@ -9,14 +9,13 @@
 #' so for example \code{fy_month = 9} and "2015-16" means Sep-2015,
 #' while \code{fy_month = 6} means Jun-2016.
 #'
-#' @param .from_constant_form,.to_constant_form Are \code{from}, \code{to}
-#' each of constant form? That is, are they all consistently dates,
-#' financial years or are they (possibly) a mixture? If \code{TRUE},
-#' mixtures of formats will raise an error. This is useful
-#' to distinguish financial years from year-month formats (e.g. 2008-09).
 #'
 #' @param x The vector that will be inflated in-place. If \code{NULL},
 #' the default, the return vector is simply the inflation factor for `from`.
+#'
+#' @param check \code{integer(1)} If \code{0L}, no checks are performed, and
+#' clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
+#' an error is performed for bad input; \code{check = 2L} is more thorough.
 #'
 #' @param nThread Number of threads to use.
 #'
@@ -25,12 +24,13 @@
 cpi_inflator <- function(from, to,
                          adjustment = c("seasonal", "original", "trimmed.mean"),
                          fy_month = 3L,
-
                          x = NULL,
+                         check = 1L,
                          nThread = getOption("grattanInflators.nThread", 1L)) {
   adjustment <- match.arg(adjustment)
   Index <- GET_SERIES(cpi2series_id(adjustment))
-  Inflate(from, to, Index, fy_month = fy_month,
+  Inflate(from, to, Index, fy_month = fy_month, x = x,
+          check = check,
           nThread = nThread)
 }
 
@@ -63,25 +63,25 @@ Inflate <- function(from, to,
                     index,
                     x = NULL,
                     fy_month = 3L,
-                    .from_constant_form = FALSE,
-                    .to_constant_form = FALSE,
+                    check = check,
                     nThread = getOption("grattanInflators.nThread", 1L)) {
   index_dates <- as.IDate(.subset2(index, "date"))
-  index_min_date <- index_dates[1L]
-  .check_input(from, index_min_date, nThread = nThread)
-  .check_input(to, index_min_date, nThread = nThread)
+  minDate <- index_dates[1L]
+  if (is.na(minDate) || !inherits(minDate, "Date") || minDate < "1948-01-01") {
+    stop("`minDate = ", minDate, "` but must be a date no earlier than 1948-01-01")
+  }
+  .check_input(from, minDate = minDate, check = check, nThread = nThread)
+  .check_input(to, minDate = minDate, check = check, nThread = nThread)
   .Call("C_Inflate",
         ensure_date(from),
         ensure_date(to),
         .subset2(index, "value"),
-        index_min_date,
+        minDate,
         date2freq(index_dates),
         fy_month,
         x,
         supported_classes(class(from)),
         supported_classes(class(to)),
-        isTRUE(.from_constant_form),
-        isTRUE(.to_constant_form),
         nThread,
         PACKAGE = packageName())
 }

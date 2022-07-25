@@ -275,10 +275,7 @@ SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP Check, SEXP nthreads) {
   R_xlen_t N = xlength(x);
   if (check >= 1) {
     // void check_strsxp(const SEXP * xp, R_xlen_t N, const char * var, const int min_date, int nThread)
-    check_strsxp(xp, N, "x", MIN_IDATE, nThread);
-  }
-  if (check >= 2) {
-
+    check_strsxp(xp, N, check, "x", MIN_IDATE, nThread);
   }
 
   SEXP ans = PROTECT(allocVector(INTSXP, N));

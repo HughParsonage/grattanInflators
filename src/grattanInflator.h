@@ -88,7 +88,7 @@ typedef struct {
 int string2month(const char * x);
 
 // check_input
-void check_strsxp(const SEXP * xp, R_xlen_t N, const char * var, const int min_date, int nThread);
+void check_strsxp(const SEXP * xp, R_xlen_t N, int check, const char * var, const int min_date, int nThread);
 // YearMonth
 YearMonth idate2YearMonth(int x);
 unsigned int p_search(int x);
@@ -105,6 +105,7 @@ void err_if_below_mindate(const SEXP * xp, R_xlen_t N, int minDate, const char *
 int as_nThread(SEXP x);
 
 // SEXP2YearMonth.c
+int string2year(const char * x);
 void SEXP2YearMonth(YearMonth * ansp,
                     SEXP x,
                     int x_class,

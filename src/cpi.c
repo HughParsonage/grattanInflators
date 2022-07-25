@@ -46,7 +46,6 @@ void InflateQuarterly(double * restrict ansp, R_xlen_t N, int nThread,
                       R_xlen_t N_to,
                       const double * index, YearMonth index_min) {
   const int index_min_i = yqi(index_min);
-  nThread = 1;
   if (N_from == N && N_to == N) {
     FORLOOP({
       int from_i = yqi(FromDate[i]) - index_min_i;
@@ -75,6 +74,13 @@ void InflateQuarterly(double * restrict ansp, R_xlen_t N, int nThread,
       int to_i = yqi(ToDate[i]) - index_min_i;
       double to_x = index[to_i];
       ansp[i] *= to_x / from_x;
+    })
+  } else if (N_from == 1 && N_to == 1) {
+    int from_i = yqi(FromDate[0]) - index_min_i;
+    int to_i = yqi(ToDate[0]) - index_min_i;
+    double r = index[to_i] / index[from_i];
+    FORLOOP({
+      ansp[i] *= r;
     })
   }
 }
@@ -116,6 +122,14 @@ void InflateMonthly(double * restrict ansp, R_xlen_t N, int nThread,
       double to_x = index[to_i];
       ansp[i] *= to_x / from_x;
     })
+  } else if (N_from == 1 && N_to == 1) {
+    int from_i = ymi(FromDate[0]) - index_min_i;
+    int to_i = ymi(ToDate[0]) - index_min_i;
+    const double r = index[to_i] / index[from_i];
+
+    FORLOOP({
+      ansp[i] *= r;
+    })
   }
 }
 
@@ -151,6 +165,15 @@ void InflateYearly(double * restrict ansp, R_xlen_t N, int nThread,
       double to_x = index[to_i];
       ansp[i] *= to_x / from_x;
     })
+  } else if (N_from == 1 && N_to == 1) {
+    int from_0 = FromDate[0].year - index_min_year - (FromDate[0].month < index_min_month);
+    int to_0 = ToDate[0].year - index_min_year - (ToDate[0].month < index_min_month);
+    double from_x = index[from_0];
+    double to_x = index[to_0];
+    double r = to_x / from_x;
+    FORLOOP({
+      ansp[i] *= r;
+    })
   }
 }
 
@@ -168,7 +191,6 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
                SEXP FyMonth,
                SEXP x,
                SEXP FromClass, SEXP ToClass,
-               SEXP FromConstantForm, SEXP ToConstantForm,
                SEXP nthreads) {
   int nThread = as_nThread(nthreads);
   R_xlen_t N_from = xlength(From);
@@ -182,9 +204,13 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
       error("`x` was type '%s' but must be a REALSXP", type2char(TYPEOF(x)));
     }
     if (xlength(x) != N) {
-      error("`length(x) = %lld` but `%lld` was expected", xlength(x), N);
+      if (N != 1) {
+        error("`length(x) = %lld` but `%lld` was expected", xlength(x), N);
+      }
+      N = xlength(x);
     }
   }
+  int index_min = asInteger(IndexMinIDate);
 
   int from_class = asInteger(FromClass);
   int to_class = asInteger(ToClass);
@@ -206,7 +232,7 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
   }
 
 
-  int index_min = asInteger(IndexMinIDate);
+
   YearMonth index_min_ym = idate2YearMonth(index_min);
 
   const double * index = REAL(Index);
