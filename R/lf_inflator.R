@@ -1,5 +1,5 @@
-#' Wage inflator
-#' @description Uses the Wage Price Index
+#' Labour force inflator
+#' @description Uses the Labour Force Index
 #'
 #' @param from,to Times for which the inflator is desired.
 #' @param check \code{integer(1)} If \code{0L}, no checks are performed, and
@@ -9,21 +9,21 @@
 #' @param nThread Number of threads to use.
 #'
 #' @export
-wage_inflator <- function(from, to,
-                          check = 1L,
-                          x = NULL,
-                          nThread = getOption("grattanInflators.nThread", 1L)) {
-  Index <- GET_SERIES(wpi2series_id("original"))
+lf_inflator <- function(from, to,
+                        check = 1L,
+                        x = NULL,
+                        nThread = getOption("grattanInflators.nThread", 1L)) {
+  Index <- GET_SERIES(lfi2series_id("original"))
   Inflate(from, to, index = Index,
           check = check,
           x = x,
           nThread = nThread)
 }
 
-wpi2series_id <- function(adjustment) {
+lfi2series_id <- function(adjustment) {
   switch(adjustment,
-         "original" = "A2603609J",
-         "seasonal" = "A2713849C",
-         "trend" = "A2713851R",
-         "A2713851R")
+         "original" = "A84423085A",
+         "seasonal" = "A84423043C",
+         "trend" = "A84423127L",
+         "A84423127L")
 }

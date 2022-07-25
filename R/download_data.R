@@ -73,6 +73,7 @@ fread_extdata_series_id <- function(series_id) {
   ans <- fread(extdata_series_id(series_id), sep = "\t")
   stopifnot(hasName(ans, "date"))
   stopifnot(hasName(ans, "value"))
+  ans[, value := as.double(value)]
   ans[complete.cases(ans)]
 }
 
