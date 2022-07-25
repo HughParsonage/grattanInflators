@@ -193,6 +193,7 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
                SEXP FromClass, SEXP ToClass,
                SEXP nthreads) {
   int nThread = as_nThread(nthreads);
+  prohibit_vector_recyling(From, To, "from", "to");
   R_xlen_t N_from = xlength(From);
   R_xlen_t N_to = xlength(To);
   R_xlen_t N = N_from >= N_to ? N_from : N_to;
@@ -219,7 +220,8 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
     MonthFY = 3;
   }
   if (!isReal(Index)) {
-    error("Index wasn't REALSXP which is not supported.");
+    error("Index was type '%s' and length-%lld, only REALSXP.",
+          type2char(TYPEOF(Index)), xlength(Index));
   }
 
 

@@ -10,6 +10,7 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(bench)
+library(data.table)
 library(grattanInflators)
 ```
 
@@ -22,24 +23,29 @@ Utility package for CPI and other inflators.
 ```{r bench1}
 x <- rep_len(fy::yr2fy(1999:2020), 1e7)
 
-bench::system_time(grattan::cpi_inflator(, x, "2019-20"))
-bench::system_time(cpi_inflator(x, "2019-20"))
-bench::system_time(cpi_inflator(x, "2019-20", nThread = 4L))
+system_time(grattan::cpi_inflator(, x, "2019-20"))
+system_time(cpi_inflator(x, "2019-20"))
+system_time(cpi_inflator(x, "2019-20", nThread = 4L))
 
 y <- dqrng::dqsample(x)
-bench::system_time(grattan::cpi_inflator(, x, y))
-bench::system_time(cpi_inflator(x, y, nThread = 4L))
+system_time(grattan::cpi_inflator(, x, y))
+system_time(cpi_inflator(x, y, nThread = 4L))
 
 x <- rep_len(x, 1e8)
-bench::system_time(cpi_inflator(x, "2019-20", nThread = 4L))
+system_time(cpi_inflator(x, "2019-20", nThread = 4L))
 x <- y <- NULL
 ```
 
 ```{r bench2}
 x <- seq(as.Date("1999-01-01"), as.Date("2020-01-01"), by = "1 day")
 x <- rep_len(x, 1e7)
-bench::system_time(cpi_inflator(x, "2019-01-01"))
+system_time(cpi_inflator(x, "2019-01-01"))
+```
+
+```{r bench3}
 x <- rep_len(x, 1e8)
-bench::system_time(cpi_inflator(x, "2019-01-01", nThread = 4L))
+system_time(cpi_inflator(x, "2019-01-01", nThread = 4L))
+x <- as.IDate(x)
+system_time(cpi_inflator(x, as.IDate("2019-01-01"), nThread = 4L))
 ```
 

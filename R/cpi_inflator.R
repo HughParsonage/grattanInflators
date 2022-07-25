@@ -72,6 +72,12 @@ Inflate <- function(from, to,
   }
   .check_input(from, minDate = minDate, check = check, nThread = nThread)
   .check_input(to, minDate = minDate, check = check, nThread = nThread)
+  if (inherits(from, "IDate") && inherits(to, "IDate")) {
+    return(.Call("C_Inflate2",
+                 from, to, .subset2(index, "value"),
+                 minDate, date2freq(index_dates), nThread,
+                 PACKAGE = packageName()))
+  }
   .Call("C_Inflate",
         ensure_date(from),
         ensure_date(to),
