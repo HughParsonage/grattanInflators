@@ -5,6 +5,8 @@
 #' @param check \code{integer(1)} If \code{0L}, no checks are performed, and
 #' clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
 #' an error is performed for bad input; \code{check = 2L} is more thorough.
+#' @param x (Advanced) A vector that will be inflated in-place. If \code{NULL},
+#' the default, the return vector is simply the inflation factor for `from`.
 #'
 #' @param nThread Number of threads to use.
 #'

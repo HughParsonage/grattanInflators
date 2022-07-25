@@ -19,6 +19,9 @@ lf_inflator(
 clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
 an error is performed for bad input; \code{check = 2L} is more thorough.}
 
+\item{x}{(Advanced) A vector that will be inflated in-place. If \code{NULL},
+the default, the return vector is simply the inflation factor for `from`.}
+
 \item{nThread}{Number of threads to use.}
 }
 \description{
