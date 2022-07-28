@@ -1,7 +1,14 @@
-#'
+#' Faster conversion to IDate for common dates
+#' @param x The character vector to convert, in \code{YYYY-mm-dd} form only.
+#' @param incl_day Whether or not the day is necessary to convert. Set to \code{FALSE}
+#' when the day component does not matter (or is constantly -01); the day component
+#' in the output will be -01.
+#' @param check \code{integer: 0, 1, or 2} Level of check to perform. 0 for no
+#' checks.
+#' @param nThread Number of threads to use.
+#' @export
 
-
-fast_as_idate <- function(x, incl_day = FALSE, check = 0L, nThread = 1L) {
+fast_as_idate <- function(x, incl_day = TRUE, check = 0L, nThread = 1L) {
   o <- .Call("C_fastIDate", x, incl_day, check, nThread, PACKAGE = packageName())
   class(o) <- c("IDate", "Date")
   o
