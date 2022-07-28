@@ -104,13 +104,16 @@ static void check_valid_strings(const SEXP * xp, R_xlen_t N, int check, int nThr
       }
       const char * xi = CHAR(xp[i]);
       int nxi = length(xp[i]);
-      unsigned char ei = err_string(xi, nxi, check);
+      int ei = err_string(xi, nxi, check);
       switch(ei) {
       case ERR_CHAR_NOT_YYYY:
         error("`%s` contained invalid element:\n\t %s[%lld] = %s\n(must start with YYYY)",
               var, var, i + 1, CHAR(xp[i]));
-      case ERR_CHAR_BAD_MDAY:
+      case ERR_CHAR_NO_MONTH:
         error("`%s` contained invalid element:\n\t %s[%lld] = %s\n(No month)",
+              var, var, i + 1, CHAR(xp[i]));
+      case ERR_CHAR_BAD_MDAY:
+        error("`%s` contained invalid element:\n\t %s[%lld] = %s\n(Day component invalid)",
               var, var, i + 1, CHAR(xp[i]));
       case ERR_CHAR_YR_RANGE:
         error("`%s` contained invalid element:\n\t %s[%lld] = %s\n(Years must be between %d and %d)",
