@@ -1,18 +1,30 @@
-
-
-get_all_series_ids <- function() {
-  c("aus-cpi-original" = "A2325846C",
-    "aus-cpi-seasonal" = "A3604506F",
-    "aus-cpi-trimmed-mean" = "A3604509L",
-    "aus-lfi-original" = "A84423085A",
-    "aus-lfi-seasonal" = "A84423043C",
-    "aus-lfi-trend" = "A84423127L",
-    "aus-wpi-original" = "A2603609J",
-    "aus-wpi-seasonal" = "A2713849C",
-    "aus-wpi-trend" = "A2713851R")
-}
-
-
+#' ABS Connections
+#' @description The package uses the catalogue mirrored at \url{github.com/HughParsonage/ABS-Catalogue}.
+#' These functions expose the guts of the package's method to connect to this mirror.
+#'
+#' Each inflator, plus the 'adjustment', is associated with an ABS Series ID.
+#'
+#' @name abs-conn
+#'
+#' @param broad_cat,adjustment Definitions to identify the Series ID. If any
+#' are multiple, the result is of the cartesian join, \strong{not} the
+#' component-wise values.
+#'
+#' @param series_id The Series ID desired. For \code{download_data}, if \code{NULL},
+#' the default, downloads all files required.
+#'
+#'
+#' @return
+#' \describe{
+#' \item{\code{content2series_id}}{A character vector, the Series ID identified
+#' by `broad_cat` and `adjustment`}
+#' \item{\code{download_data}}{Called for its side-effect, downloading the
+#' data required. If successful, returns zero.}
+#' \item{\code{when_last_updated}}{The date the downloaded data was last retrieved, or
+#' the string \code{"Never"} if the file does not exist.}
+#' }
+#'
+NULL
 
 series_id_int <- function(series_id) {
   # convert to integer e.g. A5Z = 26 + 50
@@ -23,7 +35,8 @@ series_id_int <- function(series_id) {
          0L)
 }
 
-
+#' @rdname abs-conn
+#' @export
 content2series_id <- function(broad_cat = c("cpi", "lfi", "wpi"),
                               adjustment = c("original", "seasonal", "trend", "trimmed-mean")) {
   cj <- CJ(broad_cat = broad_cat,
@@ -95,6 +108,8 @@ find_hughparsonage_abs_catalogue <- function(series_id) {
           file_splitter(series_id))
 }
 
+#' @rdname abs-conn
+#' @export
 download_data <- function(series_id = NULL) {
   if (is.null(series_id)) {
     # do everything
@@ -119,11 +134,23 @@ download_data <- function(series_id = NULL) {
            "intended destfile: ", extdata_series_id(sid))
     }
   })
-  saveRDS(Sys.Date(),
-          file.path(system.file("extdata", package = packageName()),
-                    "date_last_updated.rds"))
+  saveRDS(Sys.Date(), date_last_updated.rds())
 
   invisible(0L)
+}
+
+date_last_updated.rds <- function() {
+  file.path(system.file("extdata", package = packageName()),
+            "date_last_updated.rds")
+}
+
+#' @rdname abs-conn
+#' @export
+when_last_updated <- function() {
+  if (!file.exists(date_last_updated.rds())) {
+    return("Never updated")
+  }
+  return(readRDS(date_last_updated.rds()))
 }
 
 

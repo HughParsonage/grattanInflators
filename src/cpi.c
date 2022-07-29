@@ -1,26 +1,10 @@
 #include "grattanInflator.h"
 
-
 static int index_freq2int(SEXP IndexFreq) {
   switch(TYPEOF(IndexFreq)) {
   case INTSXP:
   case REALSXP:
     return asInteger(IndexFreq);
-  case STRSXP:
-  {
-    const char * x = CHAR(STRING_ELT(IndexFreq, 0));
-    switch(toupper(x[0])) {
-    case 'A':
-      return 1;
-    case 'Q':
-      return 4;
-    case 'M':
-      return 12;
-    case 'D':
-      return 365;
-    }
-  }
-    return 0;
   }
   return 0;
 }
@@ -206,7 +190,9 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
     }
     if (xlength(x) != N) {
       if (N != 1) {
-        error("`length(x) = %lld` but `%lld` was expected", xlength(x), N);
+        error("x was type '%s' and `length(x) = %lld` but `%lld` was expected",
+              type2char(TYPEOF(x)),
+              xlength(x), N);
       }
       N = xlength(x);
     }

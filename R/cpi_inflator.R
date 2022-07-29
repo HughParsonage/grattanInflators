@@ -47,11 +47,11 @@ date2freq <- function(date) {
   if (d_months == 3L) {
     return(4L)
   }
-  if (d_months == 1) {
+  if (d_months == 1L) {
     return(12L)
   }
 
-  if (d_months == 12L) {
+  if (d_months == 0L) {
     return(1L)
   }
   warning("Unable to determine frequency from dates:\n\t",
@@ -63,7 +63,7 @@ Inflate <- function(from, to,
                     index,
                     x = NULL,
                     fy_month = 3L,
-                    check = check,
+                    check = 2L,
                     nThread = getOption("grattanInflators.nThread", 1L)) {
   index_dates <- as.IDate(.subset2(index, "date"))
   minDate <- index_dates[1L]
@@ -78,6 +78,7 @@ Inflate <- function(from, to,
                  minDate, date2freq(index_dates), nThread,
                  PACKAGE = packageName()))
   }
+
   .Call("C_Inflate",
         ensure_date(from),
         ensure_date(to),
