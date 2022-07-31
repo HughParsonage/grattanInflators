@@ -126,9 +126,9 @@ static void check_valid_strings(const SEXP * xp, R_xlen_t N, int check, int nThr
   }
 }
 
-void check_strsxp(const SEXP * xp, R_xlen_t N, int check, const char * var, const int min_date, int nThread) {
+void check_strsxp(const SEXP * xp, R_xlen_t N, int check, const char * var,
+                  int nThread) {
   check_valid_strings(xp, N, check, nThread, var);
-  err_if_below_mindate(xp, N, min_date, var, nThread);
 }
 
 void check_intsxp(const int * xp, R_xlen_t N, int nThread, int xclass, int min_date,
@@ -178,20 +178,23 @@ void check_intsxp(const int * xp, R_xlen_t N, int nThread, int xclass, int min_d
 }
 
 
-SEXP C_check_input(SEXP x, SEXP Var, SEXP Check, SEXP Class, SEXP minDate, SEXP nthreads) {
+SEXP C_check_input(SEXP x, SEXP Var, SEXP Check, SEXP Class, SEXP minDate, SEXP maxDate, SEXP nthreads) {
   const int check = asInteger(Check);
   const char * var = CHAR(STRING_ELT(Var, 0));
   int nThread = as_nThread(nthreads);
   const int min_date = asInteger(minDate);
+  const int max_date = asInteger(maxDate);
   int xclass = asInteger(Class);
 
   switch(TYPEOF(x)) {
   case STRSXP:
-    check_strsxp(STRING_PTR(x), xlength(x), check, var, min_date, nThread);
+    check_strsxp(STRING_PTR(x), xlength(x), check, var, nThread);
     break;
   case INTSXP:
     check_intsxp(INTEGER(x), xlength(x), nThread, xclass, min_date, var);
   }
+  int xminmax[2] = {min_date, max_date};
+  err_if_anyOutsideDate(xminmax, x, nThread, var, xclass == CLASS_IDate);
 
   return R_NilValue;
 }

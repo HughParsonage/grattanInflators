@@ -129,6 +129,7 @@ void SEXP2YearMonth(YearMonth * ansp,
         O.year = xp[i] - MIN_YEAR;
         O.month = 1;
       }
+      ansp[i] = O;
     })
     return;
   }

@@ -88,7 +88,7 @@ typedef struct {
 int string2month(const char * x);
 
 // check_input
-void check_strsxp(const SEXP * xp, R_xlen_t N, int check, const char * var, const int min_date, int nThread);
+
 // YearMonth
 YearMonth idate2YearMonth(int x);
 unsigned int p_search(int x);
@@ -100,6 +100,7 @@ void prohibit_vector_recyling(SEXP x, SEXP y, const char * wx, const char * wy);
 
 // mindate.c
 void err_if_below_mindate(const SEXP * xp, R_xlen_t N, int minDate, const char * var, int nThread);
+void err_if_anyOutsideDate(int minmax[2], SEXP x, int nThread, const char * var, bool was_date);
 
 // omp-diagnose.c
 int as_nThread(SEXP x);

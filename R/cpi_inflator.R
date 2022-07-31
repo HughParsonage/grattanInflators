@@ -67,11 +67,16 @@ Inflate <- function(from, to,
                     nThread = getOption("grattanInflators.nThread", 1L)) {
   index_dates <- as.IDate(.subset2(index, "date"))
   minDate <- index_dates[1L]
+  maxDate <- index_dates[length(index_dates)]
   if (is.na(minDate) || !inherits(minDate, "Date") || minDate < "1948-01-01") {
     stop("`minDate = ", minDate, "` but must be a date no earlier than 1948-01-01")
   }
-  .check_input(from, minDate = minDate, check = check, nThread = nThread)
-  .check_input(to, minDate = minDate, check = check, nThread = nThread)
+  .check_input(from,
+               minDate = minDate, maxDate = maxDate,
+               check = check, nThread = nThread)
+  .check_input(to,
+               minDate = minDate, maxDate = maxDate,
+               check = check, nThread = nThread)
   if (inherits(from, "IDate") && inherits(to, "IDate")) {
     return(.Call("C_Inflate2",
                  from, to, .subset2(index, "value"),

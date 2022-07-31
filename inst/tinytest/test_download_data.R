@@ -4,7 +4,7 @@ has_covr <- function() {
     covr::in_covr()
 }
 
-if (tinytest::at_home() || has_covr()) {
+if (has_covr()) {
   ans <- download_data()
   expect_equal(ans, 0L)
   expect_equal(when_last_updated(), Sys.Date())
