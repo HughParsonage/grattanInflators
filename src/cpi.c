@@ -6,7 +6,7 @@ static int index_freq2int(SEXP IndexFreq) {
   case REALSXP:
     return asInteger(IndexFreq);
   }
-  return 0;
+  return 0; // # nocov
 }
 
 static int MONTH_TO_QUARTER[15] = {0,
@@ -185,6 +185,7 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
   bool x_was_null = TYPEOF(x) == NILSXP;
 
   if (!x_was_null) {
+// # nocov start
     if (!isReal(x)) {
       error("`x` was type '%s' but must be a REALSXP", type2char(TYPEOF(x)));
     }
@@ -196,6 +197,7 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
       }
       N = xlength(x);
     }
+    // # nocov end
   }
   int index_min = asInteger(IndexMinIDate);
 
@@ -205,27 +207,28 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
   if (MonthFY < 1 || MonthFY > 12) {
     MonthFY = 3;
   }
+  // # nocov start
   if (!isReal(Index)) {
     error("Index was type '%s' and length-%lld, only REALSXP.",
           type2char(TYPEOF(Index)), xlength(Index));
   }
+  // # nocov end
 
 
   YearMonth * FromDate = malloc(sizeof(YearMonth) * N_from);
   YearMonth * ToDate = malloc(sizeof(YearMonth) * N_to);
+  // # nocov start
   if (FromDate == NULL || ToDate == NULL) {
     free(FromDate);
     free(ToDate);
     error("Could not malloc.");
   }
-
-
+  // # nocov end
 
   YearMonth index_min_ym = idate2YearMonth(index_min);
 
   const double * index = REAL(Index);
   int freq = index_freq2int(IndexFreq);
-
 
   SEXP2YearMonth(FromDate, From, from_class, MonthFY, false, "from", nThread);
 

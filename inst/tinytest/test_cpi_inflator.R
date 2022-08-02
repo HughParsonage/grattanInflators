@@ -37,7 +37,8 @@ y <- x * cpi_inflator("2015-16", "2016-17")
 cpi_inflator("2015-16", "2016-17", x = x)
 expect_equal(x, y)
 
-
-
+expect_equal(cpi_inflator("2015-16", c("2015-16", "2015-16")), c(1, 1))
+expect_equal(cpi_inflator(2015, 2016), 1 / cpi_inflator(2016, 2015))
+expect_error(cpi_inflator(2099L, 2016))
 
 

@@ -267,7 +267,7 @@ static int string2fy(const char * x) {
 SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP Check, SEXP nthreads) {
   int nThread = as_nThread(nthreads);
   if (!isString(x)) {
-    error("Expected a STRSXP.");
+    error("Expected a STRSXP."); // # nocov
   }
   const bool incl_day = asLogical(IncludeDay);
   const int check = asInteger(Check);
@@ -297,22 +297,6 @@ SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP Check, SEXP nthreads) {
   })
   UNPROTECT(1);
   return ans;
-}
-
-unsigned int p_search_string10(const char * x) {
-  unsigned int m = string102month(x);
-  unsigned int y = string102year(x);
-  y -= MIN_YEAR;
-  if (y > 127 && m > 12) {
-    y = 127;
-  }
-  return 12 * y + m - 1;
-}
-
-unsigned int p_search_string7_unsafe(const char * x) {
-  int y = string2fy(x);
-  y -= MIN_YEAR;
-  return 12 * y + 18; // FY
 }
 
 

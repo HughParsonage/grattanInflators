@@ -131,70 +131,26 @@ void check_strsxp(const SEXP * xp, R_xlen_t N, int check, const char * var,
   check_valid_strings(xp, N, check, nThread, var);
 }
 
-void check_intsxp(const int * xp, R_xlen_t N, int nThread, int xclass, int min_date,
-                  const char * var) {
-  int xmin = INT_MAX; // since I want to exclude NA, which may be the first element
-#if defined _OPENMP && _OPENMP >= 201511
-#pragma omp parallel for num_threads(nThread) reduction(min : xmin)
-#endif
-  for (R_xlen_t i = 0; i < N; ++i) {
-    if (xp[i] < xmin && xp[i] != NA_INTEGER) {
-      xmin = xp[i];
-    }
-  }
-  if (xclass == CLASS_Date || xclass == CLASS_IDate) {
-    if (xmin < min_date) {
-      for (R_xlen_t i = 0; i < N; ++i) {
-        if (xp[i] < min_date && xp[i] != NA_INTEGER) {
-          if (xp[i] < MIN_IDATE) {
-            error("%s[%lld] is outside the permitted range (1948-2075).");
-          }
-          YearMonth YMi = idate2YearMonth(xp[i]);
-          error("`%s[%lld] = %d-%02d-01` before the earliest allowable date.",
-                var, i + 1, YMi.year + MIN_YEAR, YMi.month);
-        }
-      }
-    }
-  } else {
-    YearMonth minYearMonth = idate2YearMonth(min_date);
-    int minYear = minYearMonth.year;
-    minYear += MIN_YEAR;
-    if (xmin < minYear) {
-      for (R_xlen_t i = 0; i < N; ++i) {
-        if (xp[i] < minYear) {
-          if (xclass == CLASS_FY) {
-            error("`%s[%lld] = %d-%d` which is earlier than the earliest allowable fy = %d-%d",
-                  var, i + 1,
-                  xp[i] - 1, xp[i] % 100,
-                  minYear - 1, minYear % 100);
-          } else {
-            error("`%s[%lld] = %d` which is earlier than the earliest allowable year = %d",
-                  var, i + 1, xp[i], minYear);
-          }
-        }
-      }
-    }
-  }
-}
-
 
 SEXP C_check_input(SEXP x, SEXP Var, SEXP Check, SEXP Class, SEXP minDate, SEXP maxDate, SEXP nthreads) {
   const int check = asInteger(Check);
   const char * var = CHAR(STRING_ELT(Var, 0));
   int nThread = as_nThread(nthreads);
+  int xclass = asInteger(Class);
+  bool was_date = xclass == CLASS_Date || xclass == CLASS_IDate;
   const int min_date = asInteger(minDate);
   const int max_date = asInteger(maxDate);
-  int xclass = asInteger(Class);
+
 
   switch(TYPEOF(x)) {
   case STRSXP:
     check_strsxp(STRING_PTR(x), xlength(x), check, var, nThread);
     break;
   case INTSXP:
-    check_intsxp(INTEGER(x), xlength(x), nThread, xclass, min_date, var);
+    break;
   }
   int xminmax[2] = {min_date, max_date};
-  err_if_anyOutsideDate(xminmax, x, nThread, var, xclass == CLASS_IDate);
+  err_if_anyOutsideDate(xminmax, x, nThread, var, was_date);
 
-  return R_NilValue;
+  return x;
 }

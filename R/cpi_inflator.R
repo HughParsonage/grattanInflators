@@ -68,32 +68,37 @@ Inflate <- function(from, to,
   index_dates <- as.IDate(.subset2(index, "date"))
   minDate <- index_dates[1L]
   maxDate <- index_dates[length(index_dates)]
+  class_from <- supported_classes(class(from))
+  class_to <-   supported_classes(class(to))
+
   if (is.na(minDate) || !inherits(minDate, "Date") || minDate < "1948-01-01") {
     stop("`minDate = ", minDate, "` but must be a date no earlier than 1948-01-01")
   }
-  .check_input(from,
-               minDate = minDate, maxDate = maxDate,
-               check = check, nThread = nThread)
-  .check_input(to,
-               minDate = minDate, maxDate = maxDate,
-               check = check, nThread = nThread)
-  if (inherits(from, "IDate") && inherits(to, "IDate")) {
+  if (inherits(from, "IDate") && inherits(to, "IDate") && length(from) >= length(to)) {
     return(.Call("C_Inflate2",
                  from, to, .subset2(index, "value"),
                  minDate, date2freq(index_dates), nThread,
                  PACKAGE = packageName()))
   }
 
+  from <- .check_input(from,
+                       minDate = minDate, maxDate = maxDate,
+                       check = check, nThread = nThread)
+  to <- .check_input(to,
+                     minDate = minDate, maxDate = maxDate,
+                     check = check, nThread = nThread)
+
+
   .Call("C_Inflate",
-        ensure_date(from),
-        ensure_date(to),
+        from,
+        to,
         .subset2(index, "value"),
         minDate,
         date2freq(index_dates),
         fy_month,
         x,
-        supported_classes(class(from)),
-        supported_classes(class(to)),
+        class_from,
+        class_to,
         nThread,
         PACKAGE = packageName())
 }
@@ -114,6 +119,9 @@ ensure_date <- function(x) {
   }
   if (inherits(x, "Date")) {
     return(as.IDate(x))
+  }
+  if (is.double(x)) {
+    x <- as.integer(x)
   }
   x
 }

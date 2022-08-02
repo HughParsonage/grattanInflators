@@ -12,5 +12,36 @@ expect_error(ii(bb, "2015-02-28", index = Index, check = 2L), "bb")
 zfr <-  "2015-02-29"
 expect_error(ii("2000-02-29", zfr, index = Index, check = 2L), "zfr")
 expect_error(ii("2001-02-28", zfr, index = Index, check = 2L), "zfr")
+
 zff <- 1999
 expect_error(ii(zff, 2020, index = Index), "zff")
+zff <- 1999L
+expect_error(ii(zff, 2020, index = Index), "zff")
+zff <- as.integer(zff)
+expect_error(ii(zff, 2020, index = Index), "zff")
+zff <- 2040
+expect_error(ii(zff, 2020, index = Index), "zff")
+zff <- as.integer(zff)
+expect_error(ii(zff, 2020, index = Index), "zff")
+zfi <- c(NA, as.IDate("1999-01-01"))
+expect_error(ii(zfi, 2020, index = Index), "zfi")
+zfj <- as.IDate("2077-12-30")
+expect_error(ii(zfj, 2020, index = Index), "zfj")
+
+
+
+z2 <- as.IDate(c("2015-04-04", "2015-01-01", "2014-01-01", "2010-01-02"))
+z1 <- as.IDate(c("2015-04-04", "2015-01-01", "2014-01-01", "2010-01-02"))
+expect_equal(ii(z1, z2, index = Index), 1 / ii(z2, z1, index = Index))
+expect_equal(ii(z1[1], z2, index = Index), 1 / ii(z2, z1[1], index = Index))
+c1 <- as.character(z1)
+expect_equal(ii(c1[1], z2, index = Index), 1 / ii(c1, z1[1], index = Index))
+expect_equal(ii(c1, z2, index = Index), 1 / ii(c1, z1, index = Index))
+
+z2 <- as.Date(c("2015-04-04", "2015-01-01", "2014-01-01", "2010-01-02"))
+z1 <- as.Date(c("2015-04-04", "2015-01-01", "2014-01-01", "2010-01-02"))
+expect_equal(ii(z1, z2, index = Index), 1 / ii(z2, z1, index = Index))
+expect_equal(ii(z1[1], z2, index = Index), 1 / ii(z2, z1[1], index = Index))
+c1 <- as.character(z1)
+expect_equal(ii(c1[1], z2, index = Index), 1 / ii(c1, z1[1], index = Index))
+expect_equal(ii(c1, z2, index = Index), 1 / ii(c1, z1, index = Index))

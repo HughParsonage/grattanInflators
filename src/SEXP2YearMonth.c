@@ -119,20 +119,6 @@ void SEXP2YearMonth(YearMonth * ansp,
     }
     return;
   }
-  if (isReal(x)) {
-    const double * xp = REAL(x);
-    FORLOOP({
-      YearMonth O;
-      O.year = 0;
-      O.month = 15;
-      if (xp[i] > MIN_YEAR && xp[i] < MAX_YEAR) {
-        O.year = xp[i] - MIN_YEAR;
-        O.month = 1;
-      }
-      ansp[i] = O;
-    })
-    return;
-  }
   const SEXP * xp = STRING_PTR(x);
 
   FORLOOP({

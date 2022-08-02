@@ -91,15 +91,14 @@ int string2month(const char * x);
 
 // YearMonth
 YearMonth idate2YearMonth(int x);
+uint16_t year(int x) ;
 unsigned int p_search(int x);
-unsigned int p_search_string10(const char * x);
-unsigned int p_search_string7_unsafe(const char * x);
+
 
 // errif.c
 void prohibit_vector_recyling(SEXP x, SEXP y, const char * wx, const char * wy);
 
-// mindate.c
-void err_if_below_mindate(const SEXP * xp, R_xlen_t N, int minDate, const char * var, int nThread);
+// minmaxDate.c
 void err_if_anyOutsideDate(int minmax[2], SEXP x, int nThread, const char * var, bool was_date);
 
 // omp-diagnose.c

@@ -73,21 +73,10 @@ void idate2char8(char yyyy_mm[8], int x) {
   yyyy_mm[6] = digits[(mo % 10)];
 }
 
-unsigned int char8_2int(char yyyy_mm[8]) {
-  unsigned int o = yyyy_mm[0] - '1';
-  for (int j = 0; j < 8; ++j) {
-    if (j == 4) {
-      continue;
-    }
-    o <<= 4;
-    o += yyyy_mm[j] - '0';
-  }
-  return o;
-}
-
 static bool ibetween(int xminmax[2], const int * xp, R_xlen_t N, int nThread) {
   int xmin = xminmax[0];
   int xmax = xminmax[1];
+
   bool o = true;
 #if defined _OPENMP && _OPENMP >= 201511
 #pragma omp parallel for num_threads(nThread) reduction(&& : o)
@@ -104,8 +93,15 @@ static bool ibetween(int xminmax[2], const int * xp, R_xlen_t N, int nThread) {
 
 static void ierr_if_outside(int xminmax[2], const int * xp, R_xlen_t N, int nThread, const char * var,
                             bool was_date) {
+  if (!was_date) {
+    xminmax[0] = idate2YearMonth(xminmax[0]).year + 1948;
+    xminmax[1] = idate2YearMonth(xminmax[1]).year + 1948;
+  }
   if (!ibetween(xminmax, xp, N, nThread)) {
     for (R_xlen_t i = 0; i < N; ++i) {
+      if (xp[i] == NA_INTEGER) {
+        continue;
+      }
       if (xp[i] < xminmax[0]) {
         if (was_date) {
           char yyyy_mm_min[8] = {0};
@@ -115,7 +111,7 @@ static void ierr_if_outside(int xminmax[2], const int * xp, R_xlen_t N, int nThr
           error("`%s[%lld] = %s` which is prior to the earliest allowable date: %s",
                 var, i + 1, yyyy_mm_xpi, yyyy_mm_min);
         } else {
-          error("`%s[%lld] = %d` which is prior to the earliest allowable date: %d.",
+          error("`%s[%lld] = %d` (int) which is prior to the earliest allowable date: %d.",
                 var, i + 1, xp[i], xminmax[0]);
         }
       }
@@ -128,7 +124,7 @@ static void ierr_if_outside(int xminmax[2], const int * xp, R_xlen_t N, int nThr
           error("`%s[%lld] = %s` which is after the latest allowable date: %s",
                 var, i + 1, yyyy_mm_xpi, yyyy_mm_max);
         } else {
-          error("`%s[%lld] = %d` which is after the latest allowable date: %d.",
+          error("`%s[%lld] = %d` (int) which is after the latest allowable date: %d.",
                 var, i + 1, xp[i], xminmax[1]);
         }
       }
@@ -136,56 +132,6 @@ static void ierr_if_outside(int xminmax[2], const int * xp, R_xlen_t N, int nThr
   }
 }
 
-static bool dbetween(int xminmax[2], const double * xp, R_xlen_t N, int nThread) {
-  int xmin = xminmax[0];
-  int xmax = xminmax[1];
-  bool o = true;
-#if defined _OPENMP && _OPENMP >= 201511
-#pragma omp parallel for num_threads(nThread) reduction(&& : o)
-#endif
-  for (R_xlen_t i = 0; i < N; ++i) {
-    double xpi = xp[i];
-    if (xpi >= xmin && xpi <= xmax) {
-      continue;
-    }
-    o = false;
-  }
-  return o;
-}
-
-static void derr_if_outside(int xminmax[2], const double * xp, R_xlen_t N, int nThread, const char * var,
-                            bool was_date) {
-  if (!dbetween(xminmax, xp, N, nThread)) {
-    for (R_xlen_t i = 0; i < N; ++i) {
-      if (xp[i] < xminmax[0]) {
-        if (was_date) {
-          char yyyy_mm_min[8] = {0};
-          char yyyy_mm_xpi[8] = {0};
-          idate2char8(yyyy_mm_min, xminmax[0]);
-          idate2char8(yyyy_mm_xpi, xp[i]);
-          error("`%s[%lld] = %s` which is prior to the earliest allowable date: %s",
-                var, i + 1, yyyy_mm_xpi, yyyy_mm_min);
-        } else {
-          error("`%s[%lld] = %f` which is prior to the earliest allowable date: %d.",
-                var, i + 1, xp[i], xminmax[0]);
-        }
-      }
-      if (xp[i] > xminmax[1]) {
-        if (was_date) {
-          char yyyy_mm_max[8] = {0};
-          char yyyy_mm_xpi[8] = {0};
-          idate2char8(yyyy_mm_max, xminmax[1]);
-          idate2char8(yyyy_mm_xpi, xp[i]);
-          error("`%s[%lld] = %s` which is after the latest allowable date: %s",
-                var, i + 1, yyyy_mm_xpi, yyyy_mm_max);
-        } else {
-          error("`%s[%lld] = %f` which is after the latest allowable date: %d.",
-                var, i + 1, xp[i], xminmax[1]);
-        }
-      }
-    }
-  }
-}
 
 
 
@@ -227,55 +173,19 @@ static void serr_if_outside(int xminmax[2], const SEXP * xp, R_xlen_t N, int nTh
 
 }
 
-
-
 void err_if_anyOutsideDate(int minmax[2], SEXP x, int nThread, const char * var, bool was_date) {
   switch(TYPEOF(x)) {
   case INTSXP:
     ierr_if_outside(minmax, INTEGER(x), xlength(x), nThread, var, was_date);
     break;
   case REALSXP:
-    derr_if_outside(minmax, REAL(x), xlength(x), nThread, var, was_date);
+    error("Internal error: REALSXP not permitted."); // # nocov
     break;
   case STRSXP:
     serr_if_outside(minmax, STRING_PTR(x), xlength(x), nThread, var, was_date);
+    break;
   }
 }
-
-
-void err_if_below_mindate(const SEXP * xp, R_xlen_t N, int minDate, const char * var, int nThread) {
-  char yyyy_mm[8] = {0};
-  idate2char8(yyyy_mm, minDate);
-  unsigned char o = 0;
-#if defined _OPENMP && _OPENMP >= 201511
-#pragma omp parallel for num_threads(nThread) reduction(| : o)
-#endif
-  for (R_xlen_t i = 0; i < N; ++i) {
-    if (xp[i] == NA_STRING) {
-      continue;
-    }
-    const char * xi = CHAR(xp[i]);
-    if (leqcc1(xi, yyyy_mm, false)) {
-      o = 1;
-    }
-  }
-  if (o != 0) {
-    for (R_xlen_t i = 0; i < N; ++i) {
-      if (xp[i] == NA_STRING) {
-        continue;
-      }
-      const char * xi = CHAR(xp[i]);
-      if (leqcc1(xi, yyyy_mm, false)) {
-        error("`%s[%lld] = '%s'` which is prior to '%s-01', the earliest allowed date.",
-              var, i + 1, xi, (const char *)yyyy_mm);
-      }
-    }
-  }
-}
-
-
-
-
 
 SEXP C_minDate(SEXP x) {
   R_xlen_t N = xlength(x);
