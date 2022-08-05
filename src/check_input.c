@@ -134,6 +134,9 @@ void check_strsxp(const SEXP * xp, R_xlen_t N, int check, const char * var,
 
 SEXP C_check_input(SEXP x, SEXP Var, SEXP Check, SEXP Class, SEXP minDate, SEXP maxDate, SEXP nthreads) {
   const int check = asInteger(Check);
+  if (!check) {
+    return x;
+  }
   const char * var = CHAR(STRING_ELT(Var, 0));
   int nThread = as_nThread(nthreads);
   int xclass = asInteger(Class);

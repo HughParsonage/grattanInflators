@@ -1,7 +1,10 @@
 #include "grattanInflator.h"
 
-unsigned char isnt_supported_IDate(int x) {
-  return (x < MIN_IDATE) | (x > MAX_IDATE);
+static YearMonth YM_NA(void) {
+  YearMonth O;
+  O.year = 0;
+  O.month = 15;
+  return O;
 }
 
 int string2year(const char * x) {
@@ -71,24 +74,13 @@ static void string2YearMonth(YearMonth * ans,
   }
 }
 
-unsigned char any_outside_daterange(const int * xp, R_xlen_t N, int nThread) {
-  unsigned char o = 0;
-#if defined _OPENMP && _OPENMP >= 201511
-#pragma omp parallel for num_threads(nThread) schedule(static) reduction(| : o)
-#endif
-  for (R_xlen_t i = 0; i < N; ++i) {
-    o |= isnt_supported_IDate(xp[i]);
-  }
-  return o;
-}
-
 void SEXP2YearMonth(YearMonth * ansp,
                     SEXP x,
                     int x_class,
                     int fy_month,
                     bool check_day, const char * var, int nThread) {
   if (ansp == NULL) {
-    return;
+    return; // # nocov
   }
   R_xlen_t N = xlength(x);
   if (isInteger(x)) {
@@ -97,7 +89,7 @@ void SEXP2YearMonth(YearMonth * ansp,
     case CLASS_FY:
       FORLOOP({
         YearMonth O;
-        O.year = xp[i] - 1948;
+        O.year = xp[i] - MIN_YEAR;
         O.month = fy_month;
         ansp[i] = O;
       })
@@ -105,13 +97,13 @@ void SEXP2YearMonth(YearMonth * ansp,
     case CLASS_Date:
     case CLASS_IDate:
         FORLOOP({
-          ansp[i] = idate2YearMonth(xp[i]);
+          ansp[i] = xp[i] == NA_INTEGER ? YM_NA() : idate2YearMonth(xp[i]);
         })
       break;
-    case CLASS_integer:
+    default:
       FORLOOP({
         YearMonth O;
-        O.year = xp[i];
+        O.year = xp[i] - MIN_YEAR;
         O.month = 1;
         ansp[i] = O;
       })
@@ -122,6 +114,11 @@ void SEXP2YearMonth(YearMonth * ansp,
   const SEXP * xp = STRING_PTR(x);
 
   FORLOOP({
+    int n = length(xp[i]);
+    if (n != 10 && n != 7) {
+      ansp[i] = YM_NA();
+      continue;
+    }
     YearMonth O;
     string2YearMonth(&O, CHAR(xp[i]), length(xp[i]));
     ansp[i] = O;

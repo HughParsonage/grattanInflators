@@ -39,6 +39,16 @@ expect_equal(x, y)
 
 expect_equal(cpi_inflator("2015-16", c("2015-16", "2015-16")), c(1, 1))
 expect_equal(cpi_inflator(2015, 2016), 1 / cpi_inflator(2016, 2015))
+expect_equal(cpi_inflator(2015L, 2016), 1 / cpi_inflator(2016, 2015L))
 expect_error(cpi_inflator(2099L, 2016))
+expect_equal(cpi_inflator("2010-11", "2011-12", adjustment = "trimmed.mean"),
+             1.02,
+             scale = 1, tolerance = 0.005)
+expect_equal(cpi_inflator(2015, 2016), cpi_inflator("2015-01-01", "2016-01-01"))
+
+from_i <- as.IDate(from_c <- c("2015-01-01", "2014-02-02", NA, "2011-12-01"))
+to_i <- as.IDate(to_c <- c("2015-02-02"))
+expect_equal(cpi_inflator(from_i, to_i), cpi_inflator(from_c, to_c))
+
 
 

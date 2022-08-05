@@ -27,6 +27,10 @@ zfi <- c(NA, as.IDate("1999-01-01"))
 expect_error(ii(zfi, 2020, index = Index), "zfi")
 zfj <- as.IDate("2077-12-30")
 expect_error(ii(zfj, 2020, index = Index), "zfj")
+x <- c(0, 1, 2)
+expect_equal(ii("2015-01-01", "2016-01-01", index = Index, x = x), c(0, 1.01, 2.02))
+expect_equal(ii(as.IDate("2015-01-01"), as.IDate("2016-01-01"), index = Index, x = x),
+             c(0, 1.01, 2.02) * 1.01)
 
 
 
@@ -45,3 +49,4 @@ expect_equal(ii(z1[1], z2, index = Index), 1 / ii(z2, z1[1], index = Index))
 c1 <- as.character(z1)
 expect_equal(ii(c1[1], z2, index = Index), 1 / ii(c1, z1[1], index = Index))
 expect_equal(ii(c1, z2, index = Index), 1 / ii(c1, z1, index = Index))
+

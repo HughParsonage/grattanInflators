@@ -244,7 +244,15 @@ static int string102year(const char * x) {
 static int string102month(const char * x) {
   switch(x[5]) {
   case '0':
-    return isdigit(x[6]) ? x[6] - '0' : NA_INTEGER;
+{
+  unsigned int m = x[6] - '1';
+  if (m < 9) {
+    return m + 1;
+  } else {
+    return NA_INTEGER;
+  }
+}
+    break;
   case '1':
     switch(x[6]) {
     case '0':
@@ -256,11 +264,6 @@ static int string102month(const char * x) {
     }
   }
   return NA_INTEGER;
-}
-
-static int string2fy(const char * x) {
-  int yy = string102year(x);
-  return yy + 1;
 }
 
 // ignores date

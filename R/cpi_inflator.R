@@ -54,9 +54,11 @@ date2freq <- function(date) {
   if (d_months == 0L) {
     return(1L)
   }
+  # nocov start
   warning("Unable to determine frequency from dates:\n\t",
           toString(head(date, 3)))
   return(4L)
+  # nocov end
 }
 
 Inflate <- function(from, to,
@@ -74,8 +76,18 @@ Inflate <- function(from, to,
   if (is.na(minDate) || !inherits(minDate, "Date") || minDate < "1948-01-01") {
     stop("`minDate = ", minDate, "` but must be a date no earlier than 1948-01-01")
   }
+  if (is.double(x) && length(from) == 1L && length(to) == 1L) {
+    r <- Inflate(from, to, index, fy_month = fy_month, check = check, nThread = 1L)
+    .Call("C_multiply", x, r, nThread, PACKAGE = packageName())
+    return(x)
+  }
+
   if (inherits(from, "IDate") && inherits(to, "IDate") && length(from) >= length(to)) {
+    if (is.null(x)) {
+      x <- rep(1, max(length(from), length(to)))
+    }
     return(.Call("C_Inflate2",
+                 x,
                  from, to, .subset2(index, "value"),
                  minDate, date2freq(index_dates), nThread,
                  PACKAGE = packageName()))

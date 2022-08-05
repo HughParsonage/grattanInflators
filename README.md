@@ -12,21 +12,21 @@ system_time(grattan::cpi_inflator(, x, "2019-20"))
 ```
 
     ## process    real 
-    ##   578ms   338ms
+    ##   531ms   482ms
 
 ``` r
 system_time(cpi_inflator(x, "2019-20"))
 ```
 
     ## process    real 
-    ##   312ms   328ms
+    ##   438ms   439ms
 
 ``` r
 system_time(cpi_inflator(x, "2019-20", nThread = 4L))
 ```
 
     ## process    real 
-    ## 296.9ms  84.8ms
+    ##   391ms   114ms
 
 ``` r
 y <- dqrng::dqsample(x)
@@ -34,22 +34,22 @@ system_time(grattan::cpi_inflator(, x, y))
 ```
 
     ## process    real 
-    ##   21.7s   18.5s
+    ##   24.3s   21.1s
 
 ``` r
 system_time(cpi_inflator(x, y, nThread = 4L))
 ```
 
     ## process    real 
-    ##   594ms   180ms
+    ##   984ms   241ms
 
 ``` r
 x <- rep_len(x, 1e8)
 system_time(cpi_inflator(x, "2019-20", nThread = 4L))
 ```
 
-    ##  process     real 
-    ##    2.81s 769.14ms
+    ## process    real 
+    ##   4.61s   1.25s
 
 ``` r
 x <- y <- NULL
@@ -62,7 +62,7 @@ system_time(cpi_inflator(x, "2019-01-01"))
 ```
 
     ## process    real 
-    ##   266ms   264ms
+    ##   297ms   311ms
 
 ``` r
 x <- rep_len(x, 1e8)
@@ -70,7 +70,7 @@ system_time(cpi_inflator(x, "2019-01-01", nThread = 4L))
 ```
 
     ## process    real 
-    ##   3.42s   1.29s
+    ##   3.67s   1.29s
 
 ``` r
 x <- as.IDate(x)
@@ -78,4 +78,4 @@ system_time(cpi_inflator(x, as.IDate("2019-01-01"), nThread = 4L))
 ```
 
     ##  process     real 
-    ##    2.31s 669.83ms
+    ##    2.66s 905.37ms

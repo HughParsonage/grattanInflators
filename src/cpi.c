@@ -9,7 +9,7 @@ static int index_freq2int(SEXP IndexFreq) {
   return 0; // # nocov
 }
 
-static int MONTH_TO_QUARTER[15] = {0,
+static int MONTH_TO_QUARTER[16] = {0,
                                    0, 0, 0,
                                    1, 1, 1,
                                    2, 2, 2,
@@ -23,6 +23,16 @@ int yqi(YearMonth YM) {
   return i;
 }
 
+const bool YMNAs[16] = {1,
+                        0, 0, 0, 0,
+                        0, 0, 0, 0,
+                        0, 0, 0, 0,
+                        1, 1, 1};
+
+bool is_YMNA(YearMonth O) {
+  return YMNAs[O.month];
+}
+
 void InflateQuarterly(double * restrict ansp, R_xlen_t N, int nThread,
                       YearMonth * FromDate,
                       YearMonth * ToDate,
@@ -32,6 +42,10 @@ void InflateQuarterly(double * restrict ansp, R_xlen_t N, int nThread,
   const int index_min_i = yqi(index_min);
   if (N_from == N && N_to == N) {
     FORLOOP({
+      if (is_YMNA(FromDate[i]) || is_YMNA(ToDate[i])) {
+        ansp[i] = NaN;
+        continue;
+      }
       int from_i = yqi(FromDate[i]) - index_min_i;
       int to_i = yqi(ToDate[i]) - index_min_i;
 
@@ -44,27 +58,40 @@ void InflateQuarterly(double * restrict ansp, R_xlen_t N, int nThread,
       ansp[i] *= to_x / from_x;
     })
   } else if (N_from == N && N_to == 1) {
+    if (is_YMNA(ToDate[0])) {
+      FORLOOP({
+        ansp[i] = NaN;
+      })
+      return;
+    }
     int to_i = yqi(ToDate[0]) - index_min_i;
     const double to_x = index[to_i];
     FORLOOP({
+      if (is_YMNA(FromDate[i])) {
+        ansp[i] = NaN;
+        continue;
+      }
       int from_i = yqi(FromDate[i]) - index_min_i;
       double from_x = index[from_i];
       ansp[i] *= to_x / from_x;
     })
   } else if (N_from == 1 && N_to == N) {
+    if (is_YMNA(FromDate[0])) {
+      FORLOOP({
+        ansp[i] = NaN;
+      })
+      return;
+    }
     int from_i = yqi(FromDate[0]) - index_min_i;
     const double from_x = index[from_i];
     FORLOOP({
+      if (is_YMNA(ToDate[i])) {
+        ansp[i] = NaN;
+        continue;
+      }
       int to_i = yqi(ToDate[i]) - index_min_i;
       double to_x = index[to_i];
       ansp[i] *= to_x / from_x;
-    })
-  } else if (N_from == 1 && N_to == 1) {
-    int from_i = yqi(FromDate[0]) - index_min_i;
-    int to_i = yqi(ToDate[0]) - index_min_i;
-    double r = index[to_i] / index[from_i];
-    FORLOOP({
-      ansp[i] *= r;
     })
   }
 }
@@ -83,6 +110,10 @@ void InflateMonthly(double * restrict ansp, R_xlen_t N, int nThread,
   const int index_min_i = ymi(index_min);
   if (N_from == N && N_to == N) {
     FORLOOP({
+      if (is_YMNA(FromDate[i]) || is_YMNA(ToDate[i])) {
+        ansp[i] = NaN;
+        continue;
+      }
       int from_i = ymi(FromDate[i]) - index_min_i;
       int to_i = ymi(ToDate[i]) - index_min_i;
       double from_x = index[from_i];
@@ -91,28 +122,40 @@ void InflateMonthly(double * restrict ansp, R_xlen_t N, int nThread,
       ansp[i] *= to_x / from_x;
     })
   } else if (N_from == N && N_to == 1) {
+    if (is_YMNA(ToDate[0])) {
+      FORLOOP({
+        ansp[i] = NaN;
+      })
+      return;
+    }
     int to_i = ymi(ToDate[0]) - index_min_i;
     const double to_x = index[to_i];
     FORLOOP({
+      if (is_YMNA(FromDate[i])) {
+        ansp[i] = NaN;
+        continue;
+      }
       int from_i = ymi(FromDate[i]) - index_min_i;
       double from_x = index[from_i];
       ansp[i] *= to_x / from_x;
     })
   } else if (N_from == 1 && N_to == N) {
+    if (is_YMNA(FromDate[0])) {
+      FORLOOP({
+        ansp[i] = NaN;
+      })
+      return;
+    }
     int from_i = ymi(FromDate[0]) - index_min_i;
     const double from_x = index[from_i];
     FORLOOP({
+      if (is_YMNA(ToDate[i])) {
+        ansp[i] = NaN;
+        continue;
+      }
       int to_i = ymi(ToDate[i]) - index_min_i;
       double to_x = index[to_i];
       ansp[i] *= to_x / from_x;
-    })
-  } else if (N_from == 1 && N_to == 1) {
-    int from_i = ymi(FromDate[0]) - index_min_i;
-    int to_i = ymi(ToDate[0]) - index_min_i;
-    const double r = index[to_i] / index[from_i];
-
-    FORLOOP({
-      ansp[i] *= r;
     })
   }
 }
@@ -127,6 +170,10 @@ void InflateYearly(double * restrict ansp, R_xlen_t N, int nThread,
   const int index_min_month = index_min.month;
   if (N_from == N && N_to == N) {
     FORLOOP({
+      if (is_YMNA(FromDate[i]) || is_YMNA(ToDate[i])) {
+        ansp[i] = NaN;
+        continue;
+      }
       int from_i = FromDate[i].year - index_min_year - (FromDate[i].month < index_min_month);
       int to_i = ToDate[i].year - index_min_year - (ToDate[i].month < index_min_month);
       double from_x = index[from_i];
@@ -134,40 +181,42 @@ void InflateYearly(double * restrict ansp, R_xlen_t N, int nThread,
       ansp[i] *= to_x / from_x;
     })
   } else if (N_from == N && N_to == 1) {
+    if (is_YMNA(ToDate[0])) {
+      FORLOOP({
+        ansp[i] = NaN;
+      })
+      return;
+    }
     int to_i = ToDate[0].year - index_min_year - (ToDate[0].month < index_min_month);
     const double to_x = index[to_i];
     FORLOOP({
+      if (is_YMNA(FromDate[i])) {
+        ansp[i] = NaN;
+        continue;
+      }
       int from_i = FromDate[i].year - index_min_year - (FromDate[i].month < index_min_month);
       double from_x = index[from_i];
       ansp[i] *= to_x / from_x;
     })
   } else if (N_from == 1 && N_to == N) {
+    if (is_YMNA(FromDate[0])) {
+      FORLOOP({
+        ansp[i] = NaN;
+      })
+      return;
+    }
     int from_i = FromDate[0].year - index_min_year - (FromDate[0].month < index_min_month);
     const double from_x = index[from_i];
     FORLOOP({
+      if (is_YMNA(ToDate[i])) {
+        ansp[i] = NaN;
+        continue;
+      }
       int to_i = ToDate[i].year - index_min_year - (ToDate[i].month < index_min_month);
       double to_x = index[to_i];
       ansp[i] *= to_x / from_x;
     })
-  } else if (N_from == 1 && N_to == 1) {
-    int from_0 = FromDate[0].year - index_min_year - (FromDate[0].month < index_min_month);
-    int to_0 = ToDate[0].year - index_min_year - (ToDate[0].month < index_min_month);
-    double from_x = index[from_0];
-    double to_x = index[to_0];
-    double r = to_x / from_x;
-    FORLOOP({
-      ansp[i] *= r;
-    })
   }
-}
-
-static R_xlen_t find_err(YearMonth * xp, R_xlen_t N) {
-  for (R_xlen_t i = 0; i < N; ++i) {
-    if (xp[i].month > 12) {
-      return i + 1;
-    }
-  }
-  return 0;
 }
 
 
