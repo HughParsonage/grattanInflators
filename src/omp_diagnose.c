@@ -70,6 +70,4 @@ int as_nThread(SEXP x) {
 // # nocov end
 #endif
 
-SEXP Cdiagnose_omp(SEXP x) {
-  return ScalarInteger(diagnose_omp(x));
-}
+

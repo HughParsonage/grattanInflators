@@ -23,9 +23,11 @@ lf_inflator <- function(from, to,
 }
 
 lfi2series_id <- function(adjustment) {
+  # nocov start
   switch(adjustment,
          "original" = "A84423085A",
          "seasonal" = "A84423043C",
          "trend" = "A84423127L",
          "A84423127L")
+  # nocov end
 }

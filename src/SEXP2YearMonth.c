@@ -88,6 +88,10 @@ void SEXP2YearMonth(YearMonth * ansp,
     switch(x_class) {
     case CLASS_FY:
       FORLOOP({
+        if (xp[i] == NA_INTEGER) {
+          ansp[i] = YM_NA();
+          continue;
+        }
         YearMonth O;
         O.year = xp[i] - MIN_YEAR;
         O.month = fy_month;
@@ -102,6 +106,10 @@ void SEXP2YearMonth(YearMonth * ansp,
       break;
     default:
       FORLOOP({
+        if (xp[i] == NA_INTEGER) {
+          ansp[i] = YM_NA();
+          continue;
+        }
         YearMonth O;
         O.year = xp[i] - MIN_YEAR;
         O.month = 1;

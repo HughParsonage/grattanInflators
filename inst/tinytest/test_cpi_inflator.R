@@ -50,5 +50,24 @@ from_i <- as.IDate(from_c <- c("2015-01-01", "2014-02-02", NA, "2011-12-01"))
 to_i <- as.IDate(to_c <- c("2015-02-02"))
 expect_equal(cpi_inflator(from_i, to_i), cpi_inflator(from_c, to_c))
 
+# Approximately every supported date
+all_dates <- grattanInflators:::all_dates
+expect_true(min(cpi_inflator("1948-09-01", all_dates()[400:27000], adjustment = "original")) > 0.99)
+
+ff <- "2015-15"
+expect_error(cpi_inflator(ff, "2015-16"), "ff|from")
+ff <- "1999-00"
+expect_true(is.double(cpi_inflator(ff, "2015-16")))
+ff <- "1999-01"
+expect_error(cpi_inflator(ff, "2015-16"), "ff|from")
+ff <- c("1999-00", "2019-20", "2019-19")
+expect_error(cpi_inflator(ff, "2015-16"), "ff|from")
+ff <- c("1999-00-01")
+expect_error(cpi_inflator(ff, "2015-16"), "ff|from")
+
+expect_equal(cpi_inflator(c("2015-16", "2015-16"), NA_character_), c(NaN, NaN))
+
+flp <- c("2000-02-29", "2004-02-29", "1984-02-29", "1983-02-29")
+expect_error(cpi_inflator(flp, "2000-01-01", check = 2L), "f(lp|rom).4.")
 
 

@@ -22,14 +22,18 @@ EXISTS <- function(x) {
 }
 
 CLEAR_ENV <- function() {
+  # nocov start
   rm(list = ls(envir = ENV()), envir = ENV())
   options("grattanInflators.env" = NULL)
+  # nocov end
 }
 
 ENV <- function() {
+  # nocov start
   if (is.null(getOption("grattanInflators.env"))) {
     options("grattanInflators.env" = new.env(parent = emptyenv()))
   }
+  # nocov end
   getOption("grattanInflators.env")
 }
 

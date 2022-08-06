@@ -42,10 +42,12 @@ void InflateQuarterly(double * restrict ansp, R_xlen_t N, int nThread,
   const int index_min_i = yqi(index_min);
   if (N_from == N && N_to == N) {
     FORLOOP({
+      // # nocov start
       if (is_YMNA(FromDate[i]) || is_YMNA(ToDate[i])) {
         ansp[i] = NaN;
         continue;
       }
+      // # nocov end
       int from_i = yqi(FromDate[i]) - index_min_i;
       int to_i = yqi(ToDate[i]) - index_min_i;
 
@@ -58,37 +60,45 @@ void InflateQuarterly(double * restrict ansp, R_xlen_t N, int nThread,
       ansp[i] *= to_x / from_x;
     })
   } else if (N_from == N && N_to == 1) {
+    // # nocov start
     if (is_YMNA(ToDate[0])) {
       FORLOOP({
         ansp[i] = NaN;
       })
       return;
     }
+    // # nocov end
     int to_i = yqi(ToDate[0]) - index_min_i;
     const double to_x = index[to_i];
     FORLOOP({
+      // # nocov start
       if (is_YMNA(FromDate[i])) {
         ansp[i] = NaN;
         continue;
       }
+      // # nocov end
       int from_i = yqi(FromDate[i]) - index_min_i;
       double from_x = index[from_i];
       ansp[i] *= to_x / from_x;
     })
   } else if (N_from == 1 && N_to == N) {
     if (is_YMNA(FromDate[0])) {
+      // # nocov start
       FORLOOP({
         ansp[i] = NaN;
       })
       return;
+      // # nocov end
     }
     int from_i = yqi(FromDate[0]) - index_min_i;
     const double from_x = index[from_i];
     FORLOOP({
+      // # nocov start
       if (is_YMNA(ToDate[i])) {
         ansp[i] = NaN;
         continue;
       }
+      // # nocov end
       int to_i = yqi(ToDate[i]) - index_min_i;
       double to_x = index[to_i];
       ansp[i] *= to_x / from_x;
@@ -123,10 +133,12 @@ void InflateMonthly(double * restrict ansp, R_xlen_t N, int nThread,
     })
   } else if (N_from == N && N_to == 1) {
     if (is_YMNA(ToDate[0])) {
+      // # nocov start
       FORLOOP({
         ansp[i] = NaN;
       })
       return;
+      // # nocov end
     }
     int to_i = ymi(ToDate[0]) - index_min_i;
     const double to_x = index[to_i];

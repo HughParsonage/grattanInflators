@@ -194,3 +194,15 @@ SEXP C_minDate(SEXP x) {
   minDate(yyyy_mm, xp, N);
   return ScalarString(mkCharCE(yyyy_mm, CE_UTF8));
 }
+
+SEXP C_all_dates(SEXP x) {
+  int n = MAX_IDATE - MIN_IDATE + 1;
+  SEXP ans = PROTECT(allocVector(INTSXP, n));
+  int * restrict ansp = INTEGER(ans);
+  for (int i = 0; i < n; ++i) {
+    ansp[i] = MIN_IDATE + i;
+  }
+  UNPROTECT(1);
+  return ans;
+}
+

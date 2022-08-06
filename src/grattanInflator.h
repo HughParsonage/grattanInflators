@@ -54,10 +54,10 @@ typedef struct {
 
 
 
-// validate dates are 1948-07-01 to 2075-12-31 (approximately 127 years)
+// validate dates are 1948-01-01 to 2075-12-31 (approximately 127 years)
 #define MAX_IDATE 38715
-#define MIN_IDATE -7854
-#define NEG_MIN_IDATE 7854
+#define MIN_IDATE -8036
+#define NEG_MIN_IDATE 8036
 #define RANGE_IDATE 46570
 
 #define CLASS_FY 1

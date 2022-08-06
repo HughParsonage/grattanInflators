@@ -23,9 +23,11 @@ wage_inflator <- function(from, to,
 }
 
 wpi2series_id <- function(adjustment) {
+  # nocov start
   switch(adjustment,
          "original" = "A2603609J",
          "seasonal" = "A2713849C",
          "trend" = "A2713851R",
          "A2713851R")
+  # nocov end
 }

@@ -26,6 +26,7 @@
 #'
 NULL
 
+# nocov start
 series_id_int <- function(series_id) {
   # convert to integer e.g. A5Z = 26 + 50
   vapply(strsplit(series_id, ""),
@@ -34,6 +35,7 @@ series_id_int <- function(series_id) {
          },
          0L)
 }
+# nocov end
 
 #' @rdname abs-conn
 #' @export
@@ -63,7 +65,7 @@ name2series_id <- function(name, err_ifnotfound = TRUE) {
            "aus-wpi-trend" = "A2713851R")
   if (is.null(ans)) {
     if (isTRUE(err_ifnotfound)) {
-      stop("`name = ", name, "`, not found.")
+      stop("`name = ", name, "`, not found.") # nocov
     }
     return("")
   }
@@ -81,7 +83,7 @@ extdata_series_id <- function(series_id) {
 
 fread_extdata_series_id <- function(series_id) {
   if (!file.exists(extdata_series_id(series_id))) {
-    download_data(series_id)
+    download_data(series_id) # nocov
   }
   ans <- fread(extdata_series_id(series_id), sep = "\t")
   stopifnot(hasName(ans, "date"))
@@ -123,16 +125,18 @@ download_data <- function(series_id = NULL) {
     tempf <- tempfile(fileext = ".tsv")
     sid_url <- find_hughparsonage_abs_catalogue(sid)
     status <- download.file(sid_url, tempf, mode = "wb", quiet = TRUE)
+    # nocov start
     if (status) {
       stop("status_id = ", sid, " had error status", status, ".\n",
            "URL = ", sid_url)
     }
     status <- file.rename(tempf, extdata_series_id(sid))
     if (!status) {
-      stop("File rename did not succeed.\n\t",
+      stop("File rename did not succeed (status code ", status, ".\n\t",
            "downloaded file: ", tempf, "\n\t",
            "intended destfile: ", extdata_series_id(sid))
     }
+    # nocov end
   })
   saveRDS(Sys.Date(), date_last_updated.rds())
 
@@ -148,7 +152,7 @@ date_last_updated.rds <- function() {
 #' @export
 when_last_updated <- function() {
   if (!file.exists(date_last_updated.rds())) {
-    return("Never updated")
+    return("Never updated") # nocov
   }
   return(readRDS(date_last_updated.rds()))
 }

@@ -49,4 +49,12 @@ expect_equal(ii(z1[1], z2, index = Index), 1 / ii(z2, z1[1], index = Index))
 c1 <- as.character(z1)
 expect_equal(ii(c1[1], z2, index = Index), 1 / ii(c1, z1[1], index = Index))
 expect_equal(ii(c1, z2, index = Index), 1 / ii(c1, z1, index = Index))
+expect_equal(ii(c1, NA_character_, index = Index), rep(NA_real_, length(c1)))
+expect_equal(ii(c1, from = NA_character_, index = Index), rep(NA_real_, length(c1)))
+expect_equal(ii(c1, as.IDate(NA), index = Index), rep(NA_real_, length(c1)))
+expect_equal(ii(c1, from = as.IDate(NA), index = Index), rep(NA_real_, length(c1)))
+
+expect_error(ii(z1, z2, index = data.table(date = as.IDate("1900-01-01"), value = 1)),
+             "minDate")
+
 

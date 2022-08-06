@@ -176,12 +176,6 @@ YearMonth idate2YearMonth(int x) {
   return iym(p / 12, (p % 12) + 1);
 }
 
-
-uint16_t year(int x) {
-  uint16_t p = p_search(x);
-  return p / 12;
-}
-
 uint16_t year2(int x, unsigned int lwr, unsigned int upr) {
   uint16_t p = bsearch_nrst(x, lwr, upr);
   return p / 12;
@@ -298,6 +292,44 @@ SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP Check, SEXP nthreads) {
       ansp[i] += 10 * (xi[8] - '0') + (xi[9] - '0') - 1;
     }
   })
+  UNPROTECT(1);
+  return ans;
+}
+
+SEXP C_format_idate(SEXP x) {
+  if (!isInteger(x)) {
+    error("C_format_idate accepts integer only, was a '%s'", type2char(TYPEOF(x))); // # nocov
+  }
+  R_xlen_t N = xlength(x);
+  const int * xp = INTEGER(x);
+  SEXP ans = PROTECT(allocVector(STRSXP, N));
+  SEXP * ansp = STRING_PTR(ans);
+  for (R_xlen_t i = 0; i < N; ++i) {
+    int xpi = xp[i];
+    if (xpi < MIN_IDATE || xpi > MAX_IDATE) {
+      ansp[i] = NA_STRING;
+      continue;
+    }
+    unsigned int p = p_search(xp[i]);
+    int yr = p / 12 + MIN_YEAR;
+    int mo = (p % 12) + 1;
+
+    int d = xpi - ARR[p] + 1;
+
+    const char * digits = "0123456789";
+    char oi[11] = {0};
+    oi[0] = (yr >= 2000) ? '2' : '1';
+    oi[1] = (yr >= 2000) ? '0' : '9';
+    oi[2] = digits[(yr / 10) % 10];
+    oi[3] = digits[(yr % 10)];
+    oi[4] = '-';
+    oi[5] = mo >= 10 ? '1' : '0';
+    oi[6] = digits[mo % 10];
+    oi[7] = '-';
+    oi[8] = digits[d / 10];
+    oi[9] = digits[d % 10];
+    ansp[i] = mkCharCE((const char *)oi, CE_UTF8);
+  }
   UNPROTECT(1);
   return ans;
 }

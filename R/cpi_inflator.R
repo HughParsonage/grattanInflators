@@ -138,6 +138,7 @@ ensure_date <- function(x) {
   x
 }
 
+# nocov start
 cpi_inflator2 <- function(from, to) {
   from_i <- as.integer(as.IDate(from)) - as.integer(as.IDate("1948-09-01"))
   to_i <- as.integer(as.IDate(to)) - as.integer(as.IDate("1948-09-01"))
@@ -148,6 +149,7 @@ cpi_inflator2 <- function(from, to) {
   to_value <- CPI_I$value[to_i]
   to_value / from_value
 }
+# nocov end
 
 
 

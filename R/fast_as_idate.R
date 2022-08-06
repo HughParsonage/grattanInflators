@@ -14,3 +14,14 @@ fast_as_idate <- function(x, incl_day = TRUE, check = 0L, nThread = 1L) {
   class(o) <- c("IDate", "Date")
   o
 }
+
+format_idate <- function(x) {
+  .Call("C_format_idate", x, PACKAGE = packageName())
+}
+
+
+all_dates <- function() {
+  ans <- .Call("C_all_dates", NULL, PACKAGE = packageName())
+  class(ans) <- c("IDate", "Date")
+  ans
+}

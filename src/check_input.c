@@ -10,17 +10,19 @@ bool starts_with_yyyy(const char * x) {
   return (x[0] == '1' || x[0] == '2') && isdigit(x[1]) && isdigit(x[2]) && isdigit(x[3]);
 }
 
-bool is_leap_yr(int yr) {
-  if (yr < 0 || yr % 4) {
-    return 0;
-  }
-  if (yr % 100) {
-    return 0;
-  }
-  if (yr % 400) {
-    return 1;
-  }
-  return 1;
+bool isnt_leap_yr(unsigned int yr) {
+  return yr & 3u;
+  // note that 2000 is the only yr divisible by 100, so we only check divisibility by 4
+  // if (yr < 0 || yr % 4) {
+  //   return 0;
+  // }
+  // if (yr % 100) {
+  //   return 0;
+  // }
+  // if (yr % 400) {
+  //   return 1;
+  // }
+  // return 1;
 }
 
 static bool is_valid_fy_quartet(const char * z) {
@@ -49,7 +51,7 @@ unsigned char invalid_mday(const char * x, int yr, int month) {
   if (mday == 0 || month > 12 || mday > MDAYS[month]) {
     return 1;
   }
-  if (month == 2 && !is_leap_yr(yr) && mday == 29) {
+  if (month == 2 && isnt_leap_yr(yr) && mday == 29) {
     return 1;
   }
   return 0;
