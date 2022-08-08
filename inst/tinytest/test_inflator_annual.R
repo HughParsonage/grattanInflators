@@ -37,6 +37,7 @@ expect_equal(ii(as.IDate("2015-01-01"), as.IDate("2016-01-01"), index = Index, x
 z2 <- as.IDate(c("2015-04-04", "2015-01-01", "2014-01-01", "2010-01-02"))
 z1 <- as.IDate(c("2015-04-04", "2015-01-01", "2014-01-01", "2010-01-02"))
 expect_equal(ii(z1, z2, index = Index), 1 / ii(z2, z1, index = Index))
+expect_equal(ii(z1, z2, index = Index), 1 / ii(z2, z1, index = Index))
 expect_equal(ii(z1[1], z2, index = Index), 1 / ii(z2, z1[1], index = Index))
 c1 <- as.character(z1)
 expect_equal(ii(c1[1], z2, index = Index), 1 / ii(c1, z1[1], index = Index))
@@ -56,5 +57,12 @@ expect_equal(ii(c1, from = as.IDate(NA), index = Index), rep(NA_real_, length(c1
 
 expect_error(ii(z1, z2, index = data.table(date = as.IDate("1900-01-01"), value = 1)),
              "minDate")
+
+# test NAs
+a <- c(NA, "2015-01-01", "2021-01-01")
+expect_error(ii(a, z2, index = Index), "latest allowable")
+
+# prohibit vector recycling
+expect_error(ii(z2, z1[-1], index = Index), "equal length")
 
 

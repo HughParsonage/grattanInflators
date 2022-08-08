@@ -178,9 +178,11 @@ void err_if_anyOutsideDate(int minmax[2], SEXP x, int nThread, const char * var,
   case INTSXP:
     ierr_if_outside(minmax, INTEGER(x), xlength(x), nThread, var, was_date);
     break;
+    // # nocov start
   case REALSXP:
-    error("Internal error: REALSXP not permitted."); // # nocov
+    error("Internal error: REALSXP not permitted.");
     break;
+    // # nocov end
   case STRSXP:
     serr_if_outside(minmax, STRING_PTR(x), xlength(x), nThread, var, was_date);
     break;

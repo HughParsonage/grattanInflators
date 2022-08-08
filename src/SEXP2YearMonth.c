@@ -42,7 +42,7 @@ int string2month(const char * x) {
     default:
       return 15;
     }
-    break;
+    break; // # nocov
   case '1':
     switch(x[6]) {
     case '0':
@@ -52,11 +52,11 @@ int string2month(const char * x) {
     case '2':
       return 12;
     }
-    break;
+    break; // # nocov
   default:
     return 15;
   }
-  return 15;
+  return 15; // # nocov
 }
 
 static void string2YearMonth(YearMonth * ans,
@@ -73,6 +73,7 @@ static void string2YearMonth(YearMonth * ans,
     break;
   }
 }
+
 
 void SEXP2YearMonth(YearMonth * ansp,
                     SEXP x,

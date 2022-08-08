@@ -12,7 +12,7 @@
 #define USE_RINTERNALS
 #include <Rinternals.h>
 #include <Rversion.h>
-#include <stdint.h> // for uint64_t rather than unsigned long long
+#include <stdint.h> // for uint64_t rather than unsigned long long, intptr
 #include <stdbool.h>
 #include <math.h>
 #include <ctype.h>

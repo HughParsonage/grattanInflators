@@ -12,5 +12,5 @@ from_i <- as.IDate(from_c <- c("2015-01-01", "2014-02-02", NA, "2011-12-01"))
 to_i <- as.IDate(to_c <- c("2015-02-02"))
 expect_equal(lf_inflator(from_i, to_i), lf_inflator(from_c, to_c))
 
-
+expect_equal(lf_inflator(c("2015-16", "2015-16"), from = NA_character_), c(NaN, NaN))
 

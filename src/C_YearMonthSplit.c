@@ -7,8 +7,8 @@ SEXP C_YearMonthSplit(SEXP x, SEXP xClass, SEXP MonthFY, SEXP nthreads) {
   int nThread = as_nThread(nthreads);
   YearMonth * x_YM = malloc(sizeof(YearMonth) * N);
   if (x_YM == NULL) {
-    free(x_YM);
-    return R_NilValue;
+    free(x_YM); // # nocov
+    return R_NilValue; // # nocov
   }
   SEXP2YearMonth(x_YM, x, x_class, month_fy, false, "x", nThread);
   int np = 0;
