@@ -261,13 +261,12 @@ static int string102month(const char * x) {
 }
 
 // ignores date
-SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP Check, SEXP nthreads) {
+SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP nthreads) {
   int nThread = as_nThread(nthreads);
   if (!isString(x)) {
     error("Expected a STRSXP."); // # nocov
   }
   const bool incl_day = asLogical(IncludeDay);
-  const int check = asInteger(Check);
   const SEXP * xp = STRING_PTR(x);
   R_xlen_t N = xlength(x);
 

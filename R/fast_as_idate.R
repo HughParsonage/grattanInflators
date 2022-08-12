@@ -10,7 +10,7 @@
 
 fast_as_idate <- function(x, incl_day = TRUE, check = 0L, nThread = 1L) {
   .check_input(x, as.IDate("1948-01-01"), as.IDate("2075-12-31"), check = check, nThread = nThread)
-  o <- .Call("C_fastIDate", x, incl_day, check, nThread, PACKAGE = packageName())
+  o <- .Call("C_fastIDate", x, incl_day, nThread, PACKAGE = packageName())
   class(o) <- c("IDate", "Date")
   o
 }
