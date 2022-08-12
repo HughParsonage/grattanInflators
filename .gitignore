@@ -10,3 +10,4 @@
 !*.tsv
 !*.Rproj
 !README.Rmd
+!cran-comments.md
