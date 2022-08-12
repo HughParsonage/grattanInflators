@@ -4,3 +4,4 @@
 
 * This is a new release.
 * 'inflator' spelling is intended
+* URL has been fixed by prefixing https://

@@ -1,5 +1,5 @@
 #' ABS Connections
-#' @description The package uses the catalogue mirrored at \url{github.com/HughParsonage/ABS-Catalogue}.
+#' @description The package uses the catalogue mirrored at \url{https://github.com/HughParsonage/ABS-Catalogue}.
 #' These functions expose the guts of the package's method to connect to this mirror.
 #'
 #' Each inflator, plus the 'adjustment', is associated with an ABS Series ID.
