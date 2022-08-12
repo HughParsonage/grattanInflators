@@ -10,6 +10,9 @@
 #'
 #' @param nThread Number of threads to use.
 #'
+#' @examples
+#' lf_inflator("2015-16", "2016-17")
+#'
 #' @export
 lf_inflator <- function(from, to,
                         check = 1L,

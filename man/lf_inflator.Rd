@@ -27,3 +27,7 @@ the default, the return vector is simply the inflation factor for `from`.}
 \description{
 Uses the Labour Force Index
 }
+\examples{
+lf_inflator("2015-16", "2016-17")
+
+}

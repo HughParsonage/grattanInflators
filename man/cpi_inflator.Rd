@@ -38,3 +38,8 @@ an error is performed for bad input; \code{check = 2L} is more thorough.}
 \description{
 CPI inflator
 }
+\examples{
+cpi_inflator("2015-16", "2016-17")
+cpi_inflator("2015-01-01", "2016-01-01")
+
+}

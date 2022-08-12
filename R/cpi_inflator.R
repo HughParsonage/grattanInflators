@@ -19,6 +19,10 @@
 #'
 #' @param nThread Number of threads to use.
 #'
+#' @examples
+#' cpi_inflator("2015-16", "2016-17")
+#' cpi_inflator("2015-01-01", "2016-01-01")
+#'
 #' @export
 
 cpi_inflator <- function(from, to,
