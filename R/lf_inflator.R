@@ -1,5 +1,7 @@
 #' Labour force inflator
-#' @description Uses the Labour Force Index
+#' @description Uses the Labour Force Index to provide equivalent sizes of the
+#' labour force over different times by multiplying by the simple ratio of the
+#' sizes on those dates.
 #'
 #' @param from,to Times for which the inflator is desired.
 #' @param check \code{integer(1)} If \code{0L}, no checks are performed, and
@@ -11,7 +13,17 @@
 #' @param nThread Number of threads to use.
 #'
 #' @examples
+#' # The relative size of the labour force in FY 2016-17
+#' # compared to FY 2015-16
 #' lf_inflator("2015-16", "2016-17")
+#'
+#' @return
+#' If `x` is `NULL`, the default, a numeric vector matching the lengths of `from`
+#' and `to` equal to the relative size of the labour force of `from` and `to`.
+#'
+#' If `x` is numeric, it is taken to be the sizes of the labour force on dates `from`
+#' and the value returned is the equivalent size of `x` on dates `to` (by simple
+#' multiplication).
 #'
 #' @export
 lf_inflator <- function(from, to,

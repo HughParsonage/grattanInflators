@@ -18,6 +18,15 @@ checks.}
 
 \item{nThread}{Number of threads to use.}
 }
+\value{
+A vector of class \code{IDate}, \code{Date} the same length as \code{x}.
+}
 \description{
 Faster conversion to IDate for common dates
+}
+\examples{
+# For ABS data, we only need to care (and check)
+# the year and month
+fast_as_idate("2015-12-13", incl_day = FALSE)
+
 }

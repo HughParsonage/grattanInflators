@@ -10,6 +10,14 @@
 #'
 #' @param nThread Number of threads to use.
 #'
+#' @return
+#' If `x` is `NULL`, the default, a numeric vector matching the lengths of `from`
+#' and `to` equal to the inflators by which nominal wages dated `from` must be
+#' multiplied so that they are in `to` real terms.
+#'
+#' If `x` is numeric, it is taken to be wages dated `from` and the value returned
+#' is `x` in `to` real terms.
+#'
 #' @export
 wage_inflator <- function(from, to,
                           check = 1L,

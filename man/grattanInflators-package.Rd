@@ -6,7 +6,7 @@
 \alias{grattanInflators-package}
 \title{grattanInflators: Inflators for Australian Policy Analysis}
 \description{
-Using Australian Bureau of Statistics indices, provides functions that convert historical, nominal statistics to real, contemporary values, and assists with forecasting.
+Using Australian Bureau of Statistics indices, provides functions that convert historical, nominal statistics to real, contemporary values without worrying about date input quality, performance, or the ABS catalogue.
 }
 \author{
 \strong{Maintainer}: Hugh Parsonage \email{hugh.parsonage@gmail.com}

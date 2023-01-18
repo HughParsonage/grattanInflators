@@ -24,10 +24,22 @@ the default, the return vector is simply the inflation factor for `from`.}
 
 \item{nThread}{Number of threads to use.}
 }
+\value{
+If `x` is `NULL`, the default, a numeric vector matching the lengths of `from`
+and `to` equal to the relative size of the labour force of `from` and `to`.
+
+If `x` is numeric, it is taken to be the sizes of the labour force on dates `from`
+and the value returned is the equivalent size of `x` on dates `to` (by simple
+multiplication).
+}
 \description{
-Uses the Labour Force Index
+Uses the Labour Force Index to provide equivalent sizes of the
+labour force over different times by multiplying by the simple ratio of the
+sizes on those dates.
 }
 \examples{
+# The relative size of the labour force in FY 2016-17
+# compared to FY 2015-16
 lf_inflator("2015-16", "2016-17")
 
 }

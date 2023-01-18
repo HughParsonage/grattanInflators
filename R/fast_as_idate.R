@@ -6,6 +6,15 @@
 #' @param check \code{integer: 0, 1, or 2} Level of check to perform. 0 for no
 #' checks.
 #' @param nThread Number of threads to use.
+#'
+#' @examples
+#' # For ABS data, we only need to care (and check)
+#' # the year and month
+#' fast_as_idate("2015-12-13", incl_day = FALSE)
+#'
+#' @return
+#' A vector of class \code{IDate}, \code{Date} the same length as \code{x}.
+#'
 #' @export
 
 fast_as_idate <- function(x, incl_day = TRUE, check = 0L, nThread = 1L) {

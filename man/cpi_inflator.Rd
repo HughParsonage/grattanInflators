@@ -35,6 +35,14 @@ an error is performed for bad input; \code{check = 2L} is more thorough.}
 
 \item{nThread}{Number of threads to use.}
 }
+\value{
+If `x` is `NULL`, the default, a numeric vector matching the lengths of `from`
+and `to` equal to the inflators by which nominal prices dated `from` must be
+multiplied so that they are in `to` real terms.
+
+If `x` is numeric, it is taken to be prices dated `from` and the value returned
+is `x` in `to` real terms.
+}
 \description{
 CPI inflator
 }

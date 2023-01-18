@@ -23,6 +23,14 @@
 #' cpi_inflator("2015-16", "2016-17")
 #' cpi_inflator("2015-01-01", "2016-01-01")
 #'
+#' @return
+#' If `x` is `NULL`, the default, a numeric vector matching the lengths of `from`
+#' and `to` equal to the inflators by which nominal prices dated `from` must be
+#' multiplied so that they are in `to` real terms.
+#'
+#' If `x` is numeric, it is taken to be prices dated `from` and the value returned
+#' is `x` in `to` real terms.
+#'
 #' @export
 
 cpi_inflator <- function(from, to,

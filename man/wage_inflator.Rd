@@ -24,6 +24,14 @@ the default, the return vector is simply the inflation factor for `from`.}
 
 \item{nThread}{Number of threads to use.}
 }
+\value{
+If `x` is `NULL`, the default, a numeric vector matching the lengths of `from`
+and `to` equal to the inflators by which nominal wages dated `from` must be
+multiplied so that they are in `to` real terms.
+
+If `x` is numeric, it is taken to be wages dated `from` and the value returned
+is `x` in `to` real terms.
+}
 \description{
 Uses the Wage Price Index
 }
