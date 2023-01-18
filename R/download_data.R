@@ -73,16 +73,23 @@ name2series_id <- function(name, err_ifnotfound = TRUE) {
 }
 
 extdata_series_id <- function(series_id) {
-  # if (dir.exists("./inst/extdata")) {
-  #   return(paste0("./inst/extdata/", paste0(series_id, ".tsv")))
-  # }
-  file.path(system.file("extdata",
-                        package = packageName()),
-            paste0(series_id, ".tsv"))
+  # Was originally the extdata of the package but this is now not allowed
+  # in CRAN packages
+
+  # tools::R_user_dir
+  out <-
+    file.path(R_user_dir(packageName(), which = "data"),
+              paste0(series_id, ".tsv"))
+  if (!file.exists(out)) {
+    # Cannot provide an empty file
+    provide.file(out)
+    file.remove(out)
+  }
+  out
 }
 
 fread_extdata_series_id <- function(series_id) {
-  if (!file.exists(extdata_series_id(series_id))) {
+  if (!file.exists(extdata_series_id(series_id)) || !file.size(extdata_series_id(series_id))) {
     download_data(series_id) # nocov
   }
   ans <- fread(extdata_series_id(series_id), sep = "\t")
@@ -144,7 +151,7 @@ download_data <- function(series_id = NULL) {
 }
 
 date_last_updated.rds <- function() {
-  file.path(system.file("extdata", package = packageName()),
+  file.path(R_user_dir(packageName(), which = "data"),
             "date_last_updated.rds")
 }
 

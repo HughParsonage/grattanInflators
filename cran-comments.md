@@ -7,5 +7,6 @@
   more emphasis on the performance and data cleaning aspects, as a response to
   previous submission comments.
 * Missing value tags have been filled.
+* Default data directory has been changed from extdata to `R_user_dir`
 * 'inflator' spelling is intended.
 * URL has been fixed by prefixing https://

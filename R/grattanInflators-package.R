@@ -2,7 +2,9 @@
 #' @import data.table
 #' @importFrom fy fy2date
 #' @importFrom hutils samp
+#' @importFrom hutils provide.file
 #' @importFrom stats complete.cases
+#' @importFrom tools R_user_dir
 #' @importFrom utils packageName
 #' @importFrom utils download.file
 #' @importFrom utils hasName
