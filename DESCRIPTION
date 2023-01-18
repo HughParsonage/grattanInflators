@@ -1,14 +1,14 @@
 Package: grattanInflators
 Title: Inflators for Australian Policy Analysis
-Version: 0.2.1
+Version: 0.2.2
 Authors@R: 
     person(given = "Hugh",
            family = "Parsonage",
            role = c("aut", "cre"),
            email = "hugh.parsonage@gmail.com")
 Description: Using Australian Bureau of Statistics indices, provides functions
-    that convert historical, nominal statistics to real, contemporary values, 
-    and assists with forecasting.
+    that convert historical, nominal statistics to real, contemporary values 
+    without worrying about date input quality, performance, or the ABS catalogue.
 License: GPL-2
 Encoding: UTF-8
 Depends:
