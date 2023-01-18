@@ -137,7 +137,8 @@ download_data <- function(series_id = NULL) {
       stop("status_id = ", sid, " had error status", status, ".\n",
            "URL = ", sid_url)
     }
-    status <- file.rename(tempf, extdata_series_id(sid))
+    status <- file.copy(tempf, extdata_series_id(sid), overwrite = TRUE)
+    file.remove(tempf)
     if (!status) {
       stop("File rename did not succeed (status code ", status, ".\n\t",
            "downloaded file: ", tempf, "\n\t",
