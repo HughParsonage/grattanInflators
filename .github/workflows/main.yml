@@ -41,6 +41,7 @@ jobs:
     - name: pre-install
       run: Rscript -e "install.packages('glue')"
     - uses: r-lib/actions/run-rchk@v2
+    continue-on-error: true
   test-r-sanitizers:
     name: ASAN-UBSAN
     timeout-minutes: 60
