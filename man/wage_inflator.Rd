@@ -5,15 +5,16 @@
 \title{Wage inflator}
 \usage{
 wage_inflator(
-  from,
-  to,
+  from = NULL,
+  to = NULL,
   check = 1L,
   x = NULL,
   nThread = getOption("grattanInflators.nThread", 1L)
 )
 }
 \arguments{
-\item{from, to}{Times for which the inflator is desired.}
+\item{from, to}{Times for which the inflator is desired. If \code{NULL}, a date
+range close to the previous year is used.}
 
 \item{check}{\code{integer(1)} If \code{0L}, no checks are performed, and
 clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}

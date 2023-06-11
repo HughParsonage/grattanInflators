@@ -1,5 +1,6 @@
 #' Generic inflator
-#' @param from,to Times for which the inflator is desired.
+#' @param from,to Times for which the inflator is desired. If \code{NULL}, a date
+#' range close to the previous year is used.
 #' @param index A table of at least two columns, named \code{date} and \code{value}.
 #' \code{date} is the
 #' column of times to which \code{from}, \code{to} will be
@@ -35,10 +36,10 @@ Inflate <- function(from, to,
                     check = 2L,
                     nThread = getOption("grattanInflators.nThread", 1L)) {
   if (is.null(from)) {
-    from <- as.IDate(Sys.Date() - 365L)
+    from <- as.IDate(Sys.Date() - 365L - 180L)
   }
   if (is.null(to)) {
-    to <- as.IDate(Sys.Date())
+    to <- as.IDate(Sys.Date() - 180L)
   }
 
   prohibit_vector_recycling(from, to)
@@ -57,8 +58,6 @@ Inflate <- function(from, to,
     .Call("C_multiply", x, r, nThread, PACKAGE = packageName())
     return(x)
   }
-
-
 
   from <- .check_input(from,
                        minDate = minDate, maxDate = maxDate,

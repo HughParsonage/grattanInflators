@@ -16,7 +16,8 @@ cpi_inflator(
 )
 }
 \arguments{
-\item{from, to}{Times for which the inflator is desired.}
+\item{from, to}{Times for which the inflator is desired. If \code{NULL}, a date
+range close to the previous year is used.}
 
 \item{series}{Which CPI series to use.}
 

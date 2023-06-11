@@ -15,7 +15,8 @@ Inflate(
 )
 }
 \arguments{
-\item{from, to}{Times for which the inflator is desired.}
+\item{from, to}{Times for which the inflator is desired. If \code{NULL}, a date
+range close to the previous year is used.}
 
 \item{index}{A table of at least two columns, named \code{date} and \code{value}.
 \code{date} is the

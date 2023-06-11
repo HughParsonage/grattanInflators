@@ -1,7 +1,8 @@
 #' Wage inflator
 #' @description Uses the Wage Price Index
 #'
-#' @param from,to Times for which the inflator is desired.
+#' @param from,to Times for which the inflator is desired. If \code{NULL}, a date
+#' range close to the previous year is used.
 #' @param check \code{integer(1)} If \code{0L}, no checks are performed, and
 #' clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
 #' an error is performed for bad input; \code{check = 2L} is more thorough.
@@ -19,7 +20,7 @@
 #' is `x` in `to` real terms.
 #'
 #' @export
-wage_inflator <- function(from, to,
+wage_inflator <- function(from = NULL, to = NULL,
                           check = 1L,
                           x = NULL,
                           nThread = getOption("grattanInflators.nThread", 1L)) {

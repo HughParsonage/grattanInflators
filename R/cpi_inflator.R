@@ -1,6 +1,7 @@
 #' CPI inflator
 #'
-#' @param from,to Times for which the inflator is desired.
+#' @param from,to Times for which the inflator is desired. If \code{NULL}, a date
+#' range close to the previous year is used.
 #' @param series Which CPI series to use.
 #' @param fy_month An integer 1-12, the month to be used for
 #' years and financial years in \code{from} or \code{to}. Since the CPI is a
