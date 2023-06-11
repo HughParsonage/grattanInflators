@@ -36,7 +36,6 @@
 cpi_inflator <- function(from = NULL, to = NULL,
                          series = c("seasonal", "original", "trimmed.mean",
                                     "monthly-original", "monthly-seasonal", "monthly-excl-volatile"),
-                         use_monthly = FALSE,
                          fy_month = 3L,
                          x = NULL,
                          check = 1L,
