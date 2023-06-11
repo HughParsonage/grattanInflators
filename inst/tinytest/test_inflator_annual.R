@@ -60,9 +60,9 @@ expect_error(ii(z1, z2, index = data.table(date = as.IDate("1900-01-01"), value 
 
 # test NAs
 a <- c(NA, "2015-01-01", "2021-01-01")
-expect_error(ii(a, z2, index = Index), "latest allowable")
+expect_error(ii(a, z2[1:3], index = Index), "latest allowable")
 
 # prohibit vector recycling
-expect_error(ii(z2, z1[-1], index = Index), "equal length")
+expect_error(ii(z2, z1[-1], index = Index), "length")
 
 

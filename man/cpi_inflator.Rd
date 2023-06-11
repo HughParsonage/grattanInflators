@@ -5,9 +5,11 @@
 \title{CPI inflator}
 \usage{
 cpi_inflator(
-  from,
-  to,
-  adjustment = c("seasonal", "original", "trimmed.mean"),
+  from = NULL,
+  to = NULL,
+  series = c("seasonal", "original", "trimmed.mean", "monthly-original",
+    "monthly-seasonal", "monthly-excl-volatile"),
+  use_monthly = FALSE,
   fy_month = 3L,
   x = NULL,
   check = 1L,
@@ -17,7 +19,7 @@ cpi_inflator(
 \arguments{
 \item{from, to}{Times for which the inflator is desired.}
 
-\item{adjustment}{Which CPI series to use.}
+\item{series}{Which CPI series to use.}
 
 \item{fy_month}{An integer 1-12, the month to be used for
 years and financial years in \code{from} or \code{to}. Since the CPI is a

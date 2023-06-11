@@ -23,7 +23,7 @@ SEXP C_YearMonthSplit(SEXP x, SEXP xClass, SEXP MonthFY, SEXP nthreads) {
     ans2p[i] = x_YM[i].month;
   })
 
-    SEXP ans = PROTECT(allocVector(VECSXP, 2)); ++np;
+  SEXP ans = PROTECT(allocVector(VECSXP, 2)); ++np;
     SET_VECTOR_ELT(ans, 0, ans1);
     SET_VECTOR_ELT(ans, 1, ans2);
     free(x_YM);

@@ -1,7 +1,7 @@
 #' CPI inflator
 #'
 #' @param from,to Times for which the inflator is desired.
-#' @param adjustment Which CPI series to use.
+#' @param series Which CPI series to use.
 #' @param fy_month An integer 1-12, the month to be used for
 #' years and financial years in \code{from} or \code{to}. Since the CPI is a
 #' quarterly series, specifying a year is ambiguous. For
@@ -33,24 +33,33 @@
 #'
 #' @export
 
-cpi_inflator <- function(from, to,
-                         adjustment = c("seasonal", "original", "trimmed.mean"),
+cpi_inflator <- function(from = NULL, to = NULL,
+                         series = c("seasonal", "original", "trimmed.mean",
+                                    "monthly-original", "monthly-seasonal", "monthly-excl-volatile"),
+                         use_monthly = FALSE,
                          fy_month = 3L,
                          x = NULL,
                          check = 1L,
                          nThread = getOption("grattanInflators.nThread", 1L)) {
-  adjustment <- match.arg(adjustment)
-  Index <- GET_SERIES(cpi2series_id(adjustment))
+  series <- match.arg(series)
+  Index <- GET_SERIES(cpi2series_id(series))
   Inflate(from, to, Index, fy_month = fy_month, x = x,
           check = check,
           nThread = nThread)
 }
 
-cpi2series_id <- function(adjustment) {
-  switch(adjustment,
+cpi2series_id <- function(series, use_monthly) {
+  switch(series,
          original = "A2325846C",
          seasonal = "A3604506F",
-         trimmed.mean = "A3604509L")
+         trimmed.mean = "A3604509L",
+         "monthly-original" = "A128478317T",
+         "monthly-seasonal" = "A128481587A",
+         "monthly-excl-volatile" = "A128473239F")
+
+  # A128473239F // Monthly -- all groups CPI excluding volatile
+  # A128478317T // Monthly -- Index Numbers ;  All groups CPI
+  # A128481587A // Monthly -- Index Numbers ;  All groups CPI, seasonally adjusted
 
 }
 
@@ -73,59 +82,6 @@ date2freq <- function(date) {
   # nocov end
 }
 
-Inflate <- function(from, to,
-                    index,
-                    x = NULL,
-                    fy_month = 3L,
-                    check = 2L,
-                    nThread = getOption("grattanInflators.nThread", 1L)) {
-  index_dates <- as.IDate(.subset2(index, "date"))
-  minDate <- index_dates[1L]
-  maxDate <- index_dates[length(index_dates)]
-  class_from <- supported_classes(class(from))
-  class_to <-   supported_classes(class(to))
-
-  if (is.na(minDate) || !inherits(minDate, "Date") || minDate < "1948-01-01") {
-    stop("`minDate = ", minDate, "` but must be a date no earlier than 1948-01-01")
-  }
-  if (is.double(x) && length(from) == 1L && length(to) == 1L) {
-    r <- Inflate(from, to, index, fy_month = fy_month, check = check, nThread = 1L)
-    .Call("C_multiply", x, r, nThread, PACKAGE = packageName())
-    return(x)
-  }
-
-  if (inherits(from, "IDate") && inherits(to, "IDate") && length(from) >= length(to)) {
-    if (is.null(x)) {
-      x <- rep(1, max(length(from), length(to)))
-    }
-    return(.Call("C_Inflate2",
-                 x,
-                 from, to, .subset2(index, "value"),
-                 minDate, date2freq(index_dates), nThread,
-                 PACKAGE = packageName()))
-  }
-
-  from <- .check_input(from,
-                       minDate = minDate, maxDate = maxDate,
-                       check = check, nThread = nThread)
-  to <- .check_input(to,
-                     minDate = minDate, maxDate = maxDate,
-                     check = check, nThread = nThread)
-
-
-  .Call("C_Inflate",
-        from,
-        to,
-        .subset2(index, "value"),
-        minDate,
-        date2freq(index_dates),
-        fy_month,
-        x,
-        class_from,
-        class_to,
-        nThread,
-        PACKAGE = packageName())
-}
 
 
 
