@@ -2,7 +2,7 @@
 
 // # nocov start
 
-bool has_openmp() {
+bool has_openmp(void) {
 #ifdef _OPENMP
   return true;
 #else
@@ -15,7 +15,7 @@ bool has_openmp() {
 #define OPENMP_THREADS_EXCEEDED 2
 
 
-SEXP Chas_openmp() {
+SEXP Chas_openmp(void) {
   return ScalarLogical(has_openmp());
 }
 
@@ -55,8 +55,6 @@ int diagnose_omp(SEXP Threads_requested) {
 
   return -1;
 }
-
-
 
 int as_nThread(SEXP x) {
   int n_procs = omp_get_num_procs();
