@@ -334,6 +334,26 @@ SEXP C_format_idate(SEXP x) {
 }
 
 
+// index of monthly
+int ymi(YearMonth YM) {
+  // 12 *
+  return (YM.year << 3) + (YM.year << 2) + YM.month - 1;
+}
+
+static int MONTH_TO_QUARTER[16] = {0,
+                                   0, 0, 0,
+                                   1, 1, 1,
+                                   2, 2, 2,
+                                   3, 3, 3};
+
+int yqi(YearMonth YM) {
+  // return (YM.year << 2) + MONTH_TO_QUARTER[YM.month];
+  int i = (YM.year);
+  i <<= 2;
+  i += MONTH_TO_QUARTER[YM.month];
+  return i;
+}
+
 
 
 

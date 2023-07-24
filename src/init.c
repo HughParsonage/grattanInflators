@@ -9,6 +9,7 @@
 
 /* .Call calls */
 extern SEXP C_all_dates(SEXP);
+extern SEXP C_anyBeyond(SEXP, SEXP, SEXP);
 extern SEXP C_check_input(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP C_fastIDate(SEXP, SEXP, SEXP);
 extern SEXP C_format_idate(SEXP);
@@ -21,6 +22,7 @@ extern SEXP C_YearMonthSplit(SEXP, SEXP, SEXP, SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
     {"C_all_dates",      (DL_FUNC) &C_all_dates,       1},
+    {"C_anyBeyond",      (DL_FUNC) &C_anyBeyond,       3},
     {"C_check_input",    (DL_FUNC) &C_check_input,     7},
     {"C_fastIDate",      (DL_FUNC) &C_fastIDate,       3},
     {"C_format_idate",   (DL_FUNC) &C_format_idate,    1},

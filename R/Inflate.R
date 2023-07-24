@@ -47,6 +47,22 @@ Inflate <- function(from, to,
   index_dates <- as.IDate(.subset2(index, "date"))
   minDate <- index_dates[1L]
   maxDate <- index_dates[length(index_dates)]
+  if (check <= 2L) {
+    from_beyond <- .Call("C_anyBeyond", from, maxDate, nThread, PACKAGE = packageName())
+    to_beyond <- .Call("C_anyBeyond", to, maxDate, nThread, PACKAGE = packageName())
+    if (from_beyond || to_beyond) {
+      if (check == 2L) {
+        warning("`from` or `to` had dates beyond the last date in the series (", as.character(maxDate), "), so projected values will be used.")
+      } else {
+        message("`from` or `to` had dates beyond the last date in the series (", as.character(maxDate), "), so projected values will be used.")
+      }
+      index <- .prolong_ets(index)
+      index_dates <- as.IDate(.subset2(index, "date"))
+      maxDate <- index_dates[length(index_dates)]
+
+    }
+  }
+
   class_from <- supported_classes(class(from))
   class_to <-   supported_classes(class(to))
 
@@ -89,5 +105,58 @@ Inflate <- function(from, to,
         class_to,
         nThread,
         PACKAGE = packageName())
+
+
 }
+
+.prolong_Index <- function(index, until) {
+  stopifnot(inherits(until, "IDate"))
+  index_dates <- .subset2(index, "date")
+  index_values <- .subset2(index, "value")
+  freq <- date2freq(index_dates)
+  if (freq == 1L) {
+    r <- last(index_values) / index_values[length(index_values) - 1]
+    yrs <- year(until) - year(last(index_dates))
+    new_value <- last(index_values) * r^(seq_len(yrs + 1))
+    new_dates <- seq(last(index_dates), by = "1 year", length.out = yrs + 2)
+    return(rbind(index, data.table(date = new_dates, value = new_value)))
+  }
+  if (freq == 4) {
+    r <- last(index_values) / index_values[length(index_values) - 4]
+    yrs <- 4 * (year(until) - year(last(index_dates)))
+    new_value <- last(index_values) * r^((seq_len(yrs + 4)) / 4)
+    new_dates <- seq(last(index_dates), by = "3 months", length.out = yrs + 5)[-1]
+    return(rbind(index, data.table(date = new_dates, value = new_value)))
+  }
+  if (freq == 12) {
+    r <- last(index_values) / index_values[length(index_values) - 12]
+    yrs <- 4 * (year(until) - year(last(index_dates)))
+    new_value <- last(index_values) * r^((seq_len(yrs + 4)) / 4)
+    new_dates <- seq(last(index_dates), by = "3 months", length.out = yrs + 5)[-1]
+    return(rbind(index, data.table(date = new_dates, value = new_value)))
+  }
+
+}
+
+.prolong_ets <- function(index, h = 1000L) {
+  if (!requireNamespace("fable", quietly = TRUE)) {
+    message(".prolong_ets requires the fable package, so using simple average rate.")
+    return(.prolong_Index(index, as.IDate("2075-12-01")))
+  }
+  tsind <- fable::as_tsibble(copy(index)[, ind := .I], index = "ind", regular = TRUE)
+  mab <- fabletools::model(tsind, value = fable::ETS(log(value)))
+  new_value <- fabletools::forecast(mab, h = h)[[".mean"]]
+  index_dates <- .subset2(index, "date")
+  new_dates <-
+    switch(as.character(date2freq(index_dates)),
+           "1" = seq(last(index_dates), by = "1 year", length.out = length(new_value) + 1)[-1],
+           "4" = seq(last(index_dates), by = "3 months", length.out = length(new_value) + 1)[-1],
+           "12" = seq(last(index_dates), by = "1 month", length.out = length(new_value) + 1)[-1])
+  rbind(index, data.table(date = new_dates, value = new_value)[date <= last(all_dates())])
+}
+
+
+
+
+
 

@@ -119,6 +119,28 @@ cpi_inflator2 <- function(from, to) {
 }
 # nocov end
 
+cpi_custom <- function(series, ...) {
+  Index <-
+    if (is.null(series)) {
+      data.table(date = as.IDate(integer(0)),
+                 value = double(0))
+    } else {
+      GET_SERIES(cpi2series_id(series))
+    }
+  if (...length() == 1) {
+
+  }
+
+}
+
+cpi_seasonal <- function(...) {
+  Index <- GET_SERIES(cpi2series_id("seasonal"))
+  if (missing(..1)) {
+    return(GET_SERIES(cpi2series_id("seasonal")))
+  }
+
+}
+
 
 
 

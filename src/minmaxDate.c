@@ -170,7 +170,6 @@ static void serr_if_outside(int xminmax[2], const SEXP * xp, R_xlen_t N, int nTh
       }
     }
   }
-
 }
 
 void err_if_anyOutsideDate(int minmax[2], SEXP x, int nThread, const char * var, bool was_date) {
@@ -189,12 +188,58 @@ void err_if_anyOutsideDate(int minmax[2], SEXP x, int nThread, const char * var,
   }
 }
 
+static bool ianyBeyond(int max_date, const int * xp, R_xlen_t N, int nThread) {
+  bool o = false;
+#if defined _OPENMP && _OPENMP >= 201511
+#pragma omp parallel for num_threads(nThread) reduction(|| : o)
+#endif
+  for (R_xlen_t i = 0; i < N; ++i) {
+    if (xp[i] > max_date) {
+      o = true;
+    }
+  }
+  return o;
+}
+
+static bool sanyBeyond(int max_date, const SEXP * xp, R_xlen_t N, int nThread) {
+  char yyyy_mm_max[8] = {0};
+  idate2char8(yyyy_mm_max, max_date);
+  bool o = false;
+#if defined _OPENMP && _OPENMP >= 201511
+#pragma omp parallel for num_threads(nThread) reduction(|| : o)
+#endif
+  for (R_xlen_t i = 0; i < N; ++i) {
+    if (o || xp[i] == NA_STRING || length(xp[i]) < 7) {
+      continue;
+    }
+    const char * xi = CHAR(xp[i]);
+    if (!leqcc1(xi, yyyy_mm_max, false)) {
+      o = true;
+    }
+  }
+  return o;
+}
+
 SEXP C_minDate(SEXP x) {
   R_xlen_t N = xlength(x);
   const SEXP * xp = STRING_PTR(x);
   char yyyy_mm[8] = {'2', '9', '9', '9', '-', '1', '9', '\0'};
   minDate(yyyy_mm, xp, N);
   return ScalarString(mkCharCE(yyyy_mm, CE_UTF8));
+}
+
+SEXP C_anyBeyond(SEXP x, SEXP maxDate, SEXP nthreads) {
+  const int max_date = asInteger(maxDate);
+  int nThread = as_nThread(nthreads);
+  R_xlen_t N = xlength(x);
+  switch(TYPEOF(x)) {
+  case STRSXP:
+   return ScalarLogical(sanyBeyond(max_date, STRING_PTR(x), N, nThread));
+  case INTSXP:
+    return ScalarLogical(ianyBeyond(max_date, INTEGER(x), N, nThread));
+  default:
+    error("Internal error: wrong TYPEOF in C_anyBeyond.");
+  }
 }
 
 SEXP C_all_dates(SEXP x) {

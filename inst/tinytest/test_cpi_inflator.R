@@ -78,3 +78,9 @@ expect_error(cpi_inflator(fmmdd, "2000-01-01", check = 2L), "2000-11-31")
 # invalid quartet
 ffyy <- c("2015-16", NA, "2015-a7")
 expect_error(cpi_inflator(ffyy, "2015-16"), "fy")
+
+expect_equal(cpi_inflator("2019-Q1", "2020-Q1"),
+             cpi_inflator("2019-01-01", "2020-01-01"))
+expect_error(cpi_inflator("2019-Q1", "2020-Q5"))
+
+

@@ -5,6 +5,7 @@
 #define ERR_CHAR_NO_MONTH 15
 #define ERR_CHAR_BAD_MDAY 17
 #define ERR_CHAR_FY_QUART 19
+#define ERR_CHAR_YYYY__QQ 20
 
 bool starts_with_yyyy(const char * x) {
   return (x[0] == '1' || x[0] == '2') && isdigit(x[1]) && isdigit(x[2]) && isdigit(x[3]);
@@ -23,6 +24,14 @@ bool isnt_leap_yr(unsigned int yr) {
   //   return 1;
   // }
   // return 1;
+}
+
+static bool is_valid_YYYYQQ(const char * z) {
+  // assumes year has been checked
+  if (z[5] == 'Q' || z[5] == 'q') {
+    return z[6] >= '1' && z[6] <= '4';
+  }
+  return false;
 }
 
 static bool is_valid_fy_quartet(const char * z) {
@@ -75,8 +84,16 @@ static unsigned char err_string(const char * x, int n, int check) {
     }
 
   }
-  if (n == 7 && !is_valid_fy_quartet(x)) {
-    return ERR_CHAR_FY_QUART;
+  if (n == 7) {
+    if (is_valid_fy_quartet(x) || is_valid_YYYYQQ(x)) {
+      return 0;
+    }
+    if (x[5] == 'Q' || x[5] == 'q') {
+      return ERR_CHAR_YYYY__QQ;
+    }
+    if (!is_valid_fy_quartet(x)) {
+      return ERR_CHAR_FY_QUART;
+    }
   }
   return 0;
 }
@@ -123,6 +140,11 @@ static void check_valid_strings(const SEXP * xp, R_xlen_t N, int check, int nThr
       case ERR_CHAR_FY_QUART:
         error("`%s` contained invalid element:\n\t %s[%lld] = %s\n(Invalid fy)",
               var, var, i + 1, CHAR(xp[i]));
+      case ERR_CHAR_YYYY__QQ:
+        error("`%s` contained invalid element:\n\t %s[%lld] = %s\n(Invalid YYYY-QQ).",
+              var, var, i + 1, CHAR(xp[i]));
+      default:
+        error("`%s` contained invalid element but error condition not known.", var);
       }
     }
   }

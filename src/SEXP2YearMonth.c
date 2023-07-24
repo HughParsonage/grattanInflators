@@ -62,14 +62,31 @@ int string2month(const char * x) {
 static void string2YearMonth(YearMonth * ans,
                              const char * x, int n) {
   ans->year = string2year(x);
+  ans->month = 3;
   switch(n) {
   case 10:
     ans->month = string2month(x);
     break;
   case 7:
-    ans->year++;
-    ans->month = 3;
-
+    if (isdigit(x[5])) {
+      // is fy
+      ans->year++;
+    } else {
+      switch(x[6]) {
+      case '1':
+        ans->month = 2;
+        break;
+      case '2':
+        ans->month = 5;
+        break;
+      case '3':
+        ans->month = 8;
+        break;
+      case '4':
+        ans->month = 11;
+        break;
+      }
+    }
     break;
   }
 }

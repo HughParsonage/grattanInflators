@@ -9,19 +9,7 @@ static int index_freq2int(SEXP IndexFreq) {
   return 0; // # nocov
 }
 
-static int MONTH_TO_QUARTER[16] = {0,
-                                   0, 0, 0,
-                                   1, 1, 1,
-                                   2, 2, 2,
-                                   3, 3, 3};
 
-int yqi(YearMonth YM) {
-  // return (YM.year << 2) + MONTH_TO_QUARTER[YM.month];
-  int i = (YM.year);
-  i <<= 2;
-  i += MONTH_TO_QUARTER[YM.month];
-  return i;
-}
 
 const bool YMNAs[16] = {1,
                         0, 0, 0, 0,
@@ -104,11 +92,6 @@ void InflateQuarterly(double * restrict ansp, R_xlen_t N, int nThread,
       ansp[i] *= to_x / from_x;
     })
   }
-}
-
-int ymi(YearMonth YM) {
-  // 12 *
-  return (YM.year << 3) + (YM.year << 2) + YM.month - 1;
 }
 
 void InflateMonthly(double * restrict ansp, R_xlen_t N, int nThread,
