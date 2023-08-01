@@ -45,6 +45,7 @@ void InflateQuarterly(double * restrict ansp, R_xlen_t N, int nThread,
       }
       double from_x = index[from_i];
       double to_x = index[to_i];
+
       ansp[i] *= to_x / from_x;
     })
   } else if (N_from == N && N_to == 1) {

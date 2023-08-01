@@ -125,6 +125,8 @@ static void check_valid_strings(const SEXP * xp, R_xlen_t N, int check, int nThr
       int nxi = length(xp[i]);
       int ei = err_string(xi, nxi, check);
       switch(ei) {
+      case 0:
+        continue;
       case ERR_CHAR_NOT_YYYY:
         error("`%s` contained invalid element:\n\t %s[%lld] = %s\n(must start with YYYY)",
               var, var, i + 1, CHAR(xp[i]));

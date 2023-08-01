@@ -3,6 +3,7 @@
 export(Inflate)
 export(content2series_id)
 export(cpi_inflator)
+export(cpi_seasonal)
 export(download_data)
 export(fast_as_idate)
 export(lf_inflator)

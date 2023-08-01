@@ -9,6 +9,14 @@ GET_SERIES <- function(series_id) {
   GET(series_id, fread_extdata_series_id(series_id))
 }
 
+GET_SERIES_FY <- function(series_id) {
+  GET(paste0("fy", series_id), {
+    ans <- GET_SERIES(series_id)
+    value <- date <- NULL
+    ans[, "fy" := fy::date2fy(date)][, list(value = mean(value)), keyby = "fy"][]
+  })
+}
+
 GET <- function(x, value) {
   if (EXISTS(x)) {
     return(get0(x, envir = ENV(), inherits = FALSE))

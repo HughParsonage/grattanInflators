@@ -2,6 +2,7 @@
 % Please edit documentation in R/cpi_inflator.R
 \name{cpi_inflator}
 \alias{cpi_inflator}
+\alias{cpi_seasonal}
 \title{CPI inflator}
 \usage{
 cpi_inflator(
@@ -14,6 +15,8 @@ cpi_inflator(
   check = 1L,
   nThread = getOption("grattanInflators.nThread", 1L)
 )
+
+cpi_seasonal(...)
 }
 \arguments{
 \item{from, to}{Times for which the inflator is desired. If \code{NULL}, a date
@@ -36,6 +39,8 @@ clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
 an error is performed for bad input; \code{check = 2L} is more thorough.}
 
 \item{nThread}{Number of threads to use.}
+
+\item{...}{Set of date-rate pairs for custom CPI series in the future.}
 }
 \value{
 If `x` is `NULL`, the default, a numeric vector matching the lengths of `from`
