@@ -128,23 +128,7 @@ cpi_inflator2 <- function(from, to) {
 # nocov end
 
 cpi_custom <- function(series, ...) {
-  Index <-
-    if (is.null(series)) {
-      data.table(date = as.IDate(integer(0)),
-                 value = double(0))
-    } else {
-      GET_SERIES(cpi2series_id(series))
-    }
-  if (...length() == 1) {
-
-  }
-
-}
-
-#' @rdname cpi_inflator
-#' @export
-cpi_seasonal <- function(...) {
-  Index <- GET_SERIES(cpi2series_id("seasonal"))
+  Index <- GET_SERIES(cpi2series_id(series))
   if (missing(..1)) {
     return(Index)
   }
@@ -157,9 +141,42 @@ cpi_seasonal <- function(...) {
   } else {
     return(dr2index(Index, ...))
   }
+}
 
+#' @rdname cpi_inflator
+#' @export
+cpi_seasonal <- function(...) {
+  cpi_custom("seasonal", ...)
+}
 
+#' @rdname cpi_inflator
+#' @export
+cpi_original <- function(...) {
+  cpi_custom("original", ...)
+}
 
+#' @rdname cpi_inflator
+#' @export
+cpi_trimmed_mean <- function(...) {
+  cpi_custom("trimmed.mean", ...)
+}
+
+#' @rdname cpi_inflator
+#' @export
+cpi_monthly_original <- function(...) {
+  cpi_custom("monthly-original", ...)
+}
+
+#' @rdname cpi_inflator
+#' @export
+cpi_monthly_seasonal <- function(...) {
+  cpi_custom("monthly-seasonal", ...)
+}
+
+#' @rdname cpi_inflator
+#' @export
+cpi_monthly_excl_volatile <- function(...) {
+  cpi_custom("monthly-excl-volatile", ...)
 }
 
 cpi_seasonal_fy <- function(...) {
@@ -178,83 +195,3 @@ cpi_seasonal_fy <- function(...) {
     return(dr2index(Index, ...))
   }
 }
-
-.next_date <- function(dates) {
-  freq <- date2freq(dates)
-  out <- last(dates)
-  if (freq == 1L) {
-    out <- as.IDate(sprintf("%d-%d-%d", year(out) + 1L, month(out), mday(out)))
-    return(out)
-  }
-  if (freq == 4L) {
-    out <- as.IDate(sprintf("%d-%d-%d", year(out) + (month(out) > 9), (month(out) %% 12L) + 3L, mday(out)))
-    return(out)
-  }
-  as.IDate(sprintf("%d-%d-%d", year(out) + (month(out) == 12L), (month(out) %% 12L) + 1L, mday(out)))
-}
-
-.rbind_dates <- function(index, new_index, r = 1) {
-  # Takes the original index and a new index of dates and value
-  # and binds them so that they make a continguous series
-  stopifnot(is.data.table(new_index), hasName(new_index, "date"), hasName(new_index, "value"))
-  freq <- date2freq(.subset2(index, "dates"))
-  stopifnot(freq %in% c(1L, 4L, 12L))
-
-
-
-
-}
-
-r2index <- function(index, ..., r) {
-  index <- dr2index(index, ...)
-  if (missing(r)) {
-    return(index)
-  }
-  freq <- date2freq(.subset2(index, "date"))
-  while((last_date <- last(.subset2(index, "date"))) < as.IDate("2075-12-01")) {
-    dates <- .subset2(index, "date")
-    next_date <- .next_date(c(dates, next_date))
-
-    index <- rbind(index,
-                   data.table(date = next_date,
-                              value = last(.subset2(index, "value")) * ((1 + r) ^ (1 / freq))))
-  }
-  index
-}
-
-dr2index <- function(index, d1, r1, ...) {
-  dates <- .subset2(index, "date")
-  value <- .subset2(index, "value")
-  freq <- date2freq(dates)
-
-  next_date <- .next_date(dates)
-
-
-  if (fy::is_fy(d1)) {
-    d_1 <- fy::fy2date(d1)
-  } else if (is.numeric(d1)) {
-    d_1 <- as.IDate(sprintf("%d-12-31", d1))
-  } else {
-    d_1 <- ensure_date(d1)
-  }
-
-
-  while (last(.subset2(index, "date")) <= d_1) {
-    dates <- .subset2(index, "date")
-    next_date <- .next_date(c(dates, next_date))
-    index <- rbind(index,
-                   data.table(date = next_date,
-                              value = last(.subset2(index, "value")) * ((1 + r1) ^ (1 / freq))))
-
-  }
-
-  if (missing(..1)) {
-    return(index)
-  }
-  dr2index(index, ...)
-}
-
-
-
-
-

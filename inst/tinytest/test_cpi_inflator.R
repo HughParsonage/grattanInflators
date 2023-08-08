@@ -85,6 +85,7 @@ expect_error(cpi_inflator("2019-Q1", "2020-Q5"))
 
 if (Sys.Date() < as.Date("2025-01-01")) {
   expect_equal(cpi_inflator("2026-01-01", "2027-01-01", series = cpi_seasonal(2026, 0.05, 2027, 0.05)), 1.05)
+  expect_equal(cpi_inflator("2026-01-01", "2027-01-01", series = cpi_seasonal("2025-26", 0.05, "2026-27", 0.05)), 1.05)
 }
 
 
