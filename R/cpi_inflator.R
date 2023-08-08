@@ -26,6 +26,16 @@
 #' cpi_inflator("2015-16", "2016-17")
 #' cpi_inflator("2015-01-01", "2016-01-01")
 #'
+#' if (Sys.Date() < as.Date("2029-01-01")) {
+#'   cpi_inflator("2030-01-01", "2031-01-01",
+#'                series = cpi_original(2030, 0.1))
+#'   cpi_inflator("2030-01-01", "2031-01-01",
+#'                series = cpi_original(0.1))
+#'   cpi_inflator("2030-01-01", "2032-01-01",
+#'                series = cpi_original(2030, 0.1, 2031, 0.1, 2032, 0))
+#' }
+#'
+#'
 #' @return
 #' If `x` is `NULL`, the default, a numeric vector matching the lengths of `from`
 #' and `to` equal to the inflators by which nominal prices dated `from` must be

@@ -1,8 +1,13 @@
 #' Custom series
+#' @name custom-series
 #' @description Used when the true series is not appropriate, as when a forecast
 #' is desired and the series is required beyond the original series.
-#' @param input One of:
+#' @param ... A set of date-rate pairs. If an even number of arguments are passed
+#' to `...` the odd positions are dates, the even positions are rates. Then
+#' inflators are fixed at the rates for dates less than the corresponding dates.
+#'
 
+NULL
 
 
 .next_date <- function(dates) {
@@ -64,7 +69,7 @@ dr2index <- function(index, d1, r1, ...) {
   }
 
   if (missing(..1)) {
-    return(index)
+    return(.prolong_annual_r(index, r1))
   }
   dr2index(index, ...)
 }
