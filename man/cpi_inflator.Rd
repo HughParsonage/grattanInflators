@@ -21,17 +21,17 @@ cpi_inflator(
   nThread = getOption("grattanInflators.nThread", 1L)
 )
 
-cpi_seasonal(...)
+cpi_seasonal(..., FORECAST = FALSE, LEVEL = "mean")
 
-cpi_original(...)
+cpi_original(..., FORECAST = FALSE, LEVEL = "mean")
 
-cpi_trimmed_mean(...)
+cpi_trimmed_mean(..., FORECAST = FALSE, LEVEL = "mean")
 
-cpi_monthly_original(...)
+cpi_monthly_original(..., FORECAST = FALSE, LEVEL = "mean")
 
-cpi_monthly_seasonal(...)
+cpi_monthly_seasonal(..., FORECAST = FALSE, LEVEL = "mean")
 
-cpi_monthly_excl_volatile(...)
+cpi_monthly_excl_volatile(..., FORECAST = FALSE, LEVEL = "mean")
 }
 \arguments{
 \item{from, to}{Times for which the inflator is desired. If \code{NULL}, a date
@@ -56,6 +56,11 @@ an error is performed for bad input; \code{check = 2L} is more thorough.}
 \item{nThread}{Number of threads to use.}
 
 \item{...}{Set of date-rate pairs for custom CPI series in the future.}
+
+\item{FORECAST}{Whether the series should be extended via an ETS forecast.}
+
+\item{LEVEL}{If `FORECAST = TRUE` what prediction interval should be used.
+(`LEVEL = 20` means the lower end of an 80\% prediction interval.)}
 }
 \value{
 If `x` is `NULL`, the default, a numeric vector matching the lengths of `from`
@@ -69,6 +74,7 @@ is `x` in `to` real terms.
 CPI inflator
 }
 \examples{
+cpi_inflator(1995, 2023)  # Inflation from 1995 to 2023
 cpi_inflator("2015-16", "2016-17")
 cpi_inflator("2015-01-01", "2016-01-01")
 

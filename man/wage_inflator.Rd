@@ -2,15 +2,25 @@
 % Please edit documentation in R/wage_inflator.R
 \name{wage_inflator}
 \alias{wage_inflator}
+\alias{wpi_original}
+\alias{wpi_seasonal}
+\alias{wpi_trend}
 \title{Wage inflator}
 \usage{
 wage_inflator(
   from = NULL,
   to = NULL,
   check = 1L,
+  series = wpi_original(),
   x = NULL,
   nThread = getOption("grattanInflators.nThread", 1L)
 )
+
+wpi_original(..., FORECAST = FALSE, LEVEL = "mean")
+
+wpi_seasonal(..., FORECAST = FALSE, LEVEL = "mean")
+
+wpi_trend(..., FORECAST = FALSE, LEVEL = "mean")
 }
 \arguments{
 \item{from, to}{Times for which the inflator is desired. If \code{NULL}, a date
@@ -20,10 +30,20 @@ range close to the previous year is used.}
 clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
 an error is performed for bad input; \code{check = 2L} is more thorough.}
 
+\item{series}{A call to `wpi_original()`, `wpi_seasonal()`, or `wpi_trend()`,
+defining which wage price index series to use.}
+
 \item{x}{(Advanced) A vector that will be inflated in-place. If \code{NULL},
 the default, the return vector is simply the inflation factor for `from`.}
 
 \item{nThread}{Number of threads to use.}
+
+\item{...}{Set of date-rate pairs for custom WPI series in the future.}
+
+\item{FORECAST}{Whether the series should be extended via an ETS forecast.}
+
+\item{LEVEL}{If `FORECAST = TRUE` what prediction interval should be used.
+(`LEVEL = 20` means the lower end of an 80\% prediction interval.)}
 }
 \value{
 If `x` is `NULL`, the default, a numeric vector matching the lengths of `from`

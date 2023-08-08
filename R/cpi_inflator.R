@@ -21,8 +21,12 @@
 #' @param nThread Number of threads to use.
 #'
 #' @param ... Set of date-rate pairs for custom CPI series in the future.
+#' @param FORECAST Whether the series should be extended via an ETS forecast.
+#' @param LEVEL If `FORECAST = TRUE` what prediction interval should be used.
+#' (`LEVEL = 20` means the lower end of an 80\% prediction interval.)
 #'
 #' @examples
+#' cpi_inflator(1995, 2023)  # Inflation from 1995 to 2023
 #' cpi_inflator("2015-16", "2016-17")
 #' cpi_inflator("2015-01-01", "2016-01-01")
 #'
@@ -137,9 +141,12 @@ cpi_inflator2 <- function(from, to) {
 }
 # nocov end
 
-cpi_custom <- function(series, ...) {
+cpi_custom <- function(series, ..., FORECAST = FALSE, LEVEL = "mean") {
   Index <- GET_SERIES(cpi2series_id(series))
   if (missing(..1)) {
+    if (isTRUE(FORECAST)) {
+      return(.prolong_ets(Index, level = LEVEL))
+    }
     return(Index)
   }
   if (...length() %% 2L) {
@@ -155,37 +162,37 @@ cpi_custom <- function(series, ...) {
 
 #' @rdname cpi_inflator
 #' @export
-cpi_seasonal <- function(...) {
-  cpi_custom("seasonal", ...)
+cpi_seasonal <- function(..., FORECAST = FALSE, LEVEL = "mean") {
+  cpi_custom("seasonal", ..., FORECAST = FORECAST, LEVEL = LEVEL)
 }
 
 #' @rdname cpi_inflator
 #' @export
-cpi_original <- function(...) {
+cpi_original <- function(..., FORECAST = FALSE, LEVEL = "mean") {
   cpi_custom("original", ...)
 }
 
 #' @rdname cpi_inflator
 #' @export
-cpi_trimmed_mean <- function(...) {
+cpi_trimmed_mean <- function(..., FORECAST = FALSE, LEVEL = "mean") {
   cpi_custom("trimmed.mean", ...)
 }
 
 #' @rdname cpi_inflator
 #' @export
-cpi_monthly_original <- function(...) {
+cpi_monthly_original <- function(..., FORECAST = FALSE, LEVEL = "mean") {
   cpi_custom("monthly-original", ...)
 }
 
 #' @rdname cpi_inflator
 #' @export
-cpi_monthly_seasonal <- function(...) {
+cpi_monthly_seasonal <- function(..., FORECAST = FALSE, LEVEL = "mean") {
   cpi_custom("monthly-seasonal", ...)
 }
 
 #' @rdname cpi_inflator
 #' @export
-cpi_monthly_excl_volatile <- function(...) {
+cpi_monthly_excl_volatile <- function(..., FORECAST = FALSE, LEVEL = "mean") {
   cpi_custom("monthly-excl-volatile", ...)
 }
 

@@ -142,7 +142,7 @@ Inflate <- function(from, to,
 
 }
 
-.prolong_ets <- function(index, h = 1000L) {
+.prolong_ets <- function(index, level = "mean") {
   if (!requireNamespace("fable", quietly = TRUE)) {
     message(".prolong_ets requires the fable package, so using simple average rate.")
     return(.prolong_Index(index, as.IDate("2075-12-01")))
@@ -150,7 +150,24 @@ Inflate <- function(from, to,
   tsind <- fable::as_tsibble(copy(index)[, "ind" := .I], index = "ind", regular = TRUE)
   value <- NULL
   mab <- fabletools::model(tsind, value = fable::ETS(log(value)))
-  new_value <- fabletools::forecast(mab, h = h)[[".mean"]]
+  fab <- fabletools::forecast(mab, h = 700L) # 700 is more than the number required to 2075 for monthly data now
+  if (requireNamespace("distributional", quietly = TRUE) &&
+      is.numeric(level) && length(level) == 1 && !is.na(level) && between(level, 0, 100)) {
+    .level <-
+      if (use_lower <- (level < 50)) {
+        100 - level
+      } else {
+        level
+      }
+
+    hilo_ <- distributional::hilo(.subset2(fab, "value"), .level)
+    new_value <- .subset2(hilo_, if (use_lower) "lower" else "upper")
+  } else {
+    if (!identical(level, "mean")) {
+      warning("level was neither a single value between 0 and 100 nor 'mean', so will be ignored. Using level = 'mean'.")
+    }
+    new_value <- fab[[".mean"]]
+  }
   index_dates <- .subset2(index, "date")
   new_dates <-
     switch(as.character(date2freq(index_dates)),
