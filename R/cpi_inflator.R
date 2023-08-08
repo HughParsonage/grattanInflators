@@ -23,7 +23,8 @@
 #' @param ... Set of date-rate pairs for custom CPI series in the future.
 #' @param FORECAST Whether the series should be extended via an ETS forecast.
 #' @param LEVEL If `FORECAST = TRUE` what prediction interval should be used.
-#' (`LEVEL = 20` means the lower end of an 80\% prediction interval.)
+#' (`LEVEL = 20` means the lower end of an 80\% prediction interval.) If `LEVEL = "mean"`
+#' (the default), the central estimate is used.
 #'
 #' @examples
 #' cpi_inflator(1995, 2023)  # Inflation from 1995 to 2023

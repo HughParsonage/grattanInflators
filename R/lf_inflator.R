@@ -12,7 +12,8 @@
 #' @param ... Set of date-rate pairs for custom CPI series in the future.
 #' @param FORECAST Whether the series should be extended via an ETS forecast.
 #' @param LEVEL If `FORECAST = TRUE` what prediction interval should be used.
-#' (`LEVEL = 20` means the lower end of an 80\% prediction interval.)
+#' (`LEVEL = 20` means the lower end of an 80\% prediction interval.) If `LEVEL = "mean"`
+#' (the default), the central estimate is used.
 #'
 #' @param x (Advanced) A vector that will be inflated in-place. If \code{NULL},
 #' the default, the return vector is simply the inflation factor for `from`.
@@ -35,7 +36,7 @@
 #' @export
 lf_inflator <- function(from = NULL, to = NULL,
                         check = 1L,
-                        series = lf_original(),
+                        series = lfi_original(),
                         x = NULL,
                         nThread = getOption("grattanInflators.nThread", 1L)) {
   Index <- GET_SERIES(lfi2series_id("original"))

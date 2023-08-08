@@ -60,7 +60,8 @@ an error is performed for bad input; \code{check = 2L} is more thorough.}
 \item{FORECAST}{Whether the series should be extended via an ETS forecast.}
 
 \item{LEVEL}{If `FORECAST = TRUE` what prediction interval should be used.
-(`LEVEL = 20` means the lower end of an 80\% prediction interval.)}
+(`LEVEL = 20` means the lower end of an 80\% prediction interval.) If `LEVEL = "mean"`
+(the default), the central estimate is used.}
 }
 \value{
 If `x` is `NULL`, the default, a numeric vector matching the lengths of `from`

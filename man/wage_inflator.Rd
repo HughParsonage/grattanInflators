@@ -43,7 +43,8 @@ the default, the return vector is simply the inflation factor for `from`.}
 \item{FORECAST}{Whether the series should be extended via an ETS forecast.}
 
 \item{LEVEL}{If `FORECAST = TRUE` what prediction interval should be used.
-(`LEVEL = 20` means the lower end of an 80\% prediction interval.)}
+(`LEVEL = 20` means the lower end of an 80\% prediction interval.) If `LEVEL = "mean"`
+(the default), the central estimate is used.}
 }
 \value{
 If `x` is `NULL`, the default, a numeric vector matching the lengths of `from`

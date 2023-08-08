@@ -2,15 +2,25 @@
 % Please edit documentation in R/lf_inflator.R
 \name{lf_inflator}
 \alias{lf_inflator}
+\alias{lfi_original}
+\alias{lfi_seasonal}
+\alias{lfi_trend}
 \title{Labour force inflator}
 \usage{
 lf_inflator(
   from = NULL,
   to = NULL,
   check = 1L,
+  series = lfi_original(),
   x = NULL,
   nThread = getOption("grattanInflators.nThread", 1L)
 )
+
+lfi_original(..., FORECAST = FALSE, LEVEL = "mean")
+
+lfi_seasonal(..., FORECAST = FALSE, LEVEL = "mean")
+
+lfi_trend(..., FORECAST = FALSE, LEVEL = "mean")
 }
 \arguments{
 \item{from, to}{Times for which the inflator is desired. If \code{NULL}, a date
@@ -20,10 +30,20 @@ range close to the previous year is used.}
 clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
 an error is performed for bad input; \code{check = 2L} is more thorough.}
 
+\item{series}{A call to `lfi_original()`, `lfi_seasonal()`, or `lfi_trend()`.}
+
 \item{x}{(Advanced) A vector that will be inflated in-place. If \code{NULL},
 the default, the return vector is simply the inflation factor for `from`.}
 
 \item{nThread}{Number of threads to use.}
+
+\item{...}{Set of date-rate pairs for custom CPI series in the future.}
+
+\item{FORECAST}{Whether the series should be extended via an ETS forecast.}
+
+\item{LEVEL}{If `FORECAST = TRUE` what prediction interval should be used.
+(`LEVEL = 20` means the lower end of an 80\% prediction interval.) If `LEVEL = "mean"`
+(the default), the central estimate is used.}
 }
 \value{
 If `x` is `NULL`, the default, a numeric vector matching the lengths of `from`
