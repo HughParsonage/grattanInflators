@@ -2,11 +2,27 @@
 % Please edit documentation in R/custom-series.R
 \name{custom-series}
 \alias{custom-series}
+\alias{dr2index}
 \title{Custom series}
+\usage{
+dr2index(index, d1, r1, ...)
+}
 \arguments{
-\item{...}{A set of date-rate pairs. If an even number of arguments are passed
-to `...` the odd positions are dates, the even positions are rates. Then
-inflators are fixed at the rates for dates less than the corresponding dates.}
+\item{index}{An index (i.e. a data.table with columns \code{date} and \code{value},
+where \code{date} is an arithmetic sequence of monthly, quarterly, or annual dates),
+and \code{value} is the indexed value for that date.}
+
+\item{d1}{A single date or value representing a date.}
+
+\item{r1}{The desired rate of increase for the index from the last date in \code{index}
+to the end of \code{d1}. For example, \code{d1 = 2025} and \code{r1 = 0} applied
+to a monthly \code{index} would keep \code{value} constant until \code{2025-12-01}.}
+
+\item{...}{A set of date-rate pairs.}
+}
+\value{
+\code{index} with dates extended until the last supported date. The final rate
+supplied is the rate for all dates after the final date.
 }
 \description{
 Used when the true series is not appropriate, as when a forecast

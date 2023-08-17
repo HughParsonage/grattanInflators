@@ -37,7 +37,7 @@ the default, the return vector is simply the inflation factor for `from`.}
 
 \item{nThread}{Number of threads to use.}
 
-\item{...}{Set of date-rate pairs for custom CPI series in the future.}
+\item{...}{Set of date-rate pairs for custom labour force series in the future.}
 
 \item{FORECAST}{Whether the series should be extended via an ETS forecast.}
 

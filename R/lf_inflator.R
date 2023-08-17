@@ -9,7 +9,7 @@
 #' clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
 #' an error is performed for bad input; \code{check = 2L} is more thorough.
 #' @param series A call to `lfi_original()`, `lfi_seasonal()`, or `lfi_trend()`.
-#' @param ... Set of date-rate pairs for custom CPI series in the future.
+#' @param ... Set of date-rate pairs for custom labour force series in the future.
 #' @param FORECAST Whether the series should be extended via an ETS forecast.
 #' @param LEVEL If `FORECAST = TRUE` what prediction interval should be used.
 #' (`LEVEL = 20` means the lower end of an 80\% prediction interval.) If `LEVEL = "mean"`
