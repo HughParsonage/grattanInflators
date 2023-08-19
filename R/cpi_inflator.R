@@ -27,7 +27,7 @@
 #' (the default), the central estimate is used.
 #'
 #' @examples
-#' cpi_inflator(1995, 2023)  # Inflation from 1995 to 2023
+#' cpi_inflator(1995, 2019)  # Inflation from 1995 to 2019
 #' cpi_inflator("2015-16", "2016-17")
 #' cpi_inflator("2015-01-01", "2016-01-01")
 #'

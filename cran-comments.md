@@ -2,4 +2,4 @@
 
 0 errors | 0 warnings | 0 notes
 
-* This is a package update.
+* This is a package update correcting a example.
