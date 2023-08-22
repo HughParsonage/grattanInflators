@@ -1,3 +1,7 @@
+## grattanInflators 0.4.1
+
+* Fixed an error for out-of-date example
+
 ## grattanInflators 0.4.0
 
 * Added a `NEWS.md` file to track changes to the package.
