@@ -13,7 +13,10 @@ GET_SERIES_FY <- function(series_id) {
   GET(paste0("fy", series_id), {
     ans <- GET_SERIES(series_id)
     value <- date <- NULL
-    ans[, "fy" := fy::date2fy(date)][, list(value = mean(value)), keyby = "fy"][]
+    o <- data.table::setDTthreads(1L)
+    Ans <- ans[, "fy" := fy::date2fy(date)][, list(value = mean(value)), keyby = "fy"]
+    data.table::setDTthreads(o)
+    Ans
   })
 }
 

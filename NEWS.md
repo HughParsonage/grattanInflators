@@ -1,4 +1,4 @@
-## grattanInflators 0.4.1
+## grattanInflators 0.4.2
 
 * Fixed an error for out-of-date example
 

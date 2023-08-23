@@ -147,7 +147,9 @@ Inflate <- function(from, to,
     message(".prolong_ets requires the fable package, so using simple average rate.")
     return(.prolong_Index(index, as.IDate("2075-12-01")))
   }
+  o <- setDTthreads(1)
   tsind <- fable::as_tsibble(copy(index)[, "ind" := .I], index = "ind", regular = TRUE)
+  setDTthreads(o)
   value <- NULL
   mab <- fabletools::model(tsind, value = fable::ETS(log(value)))
   fab <- fabletools::forecast(mab, h = 700L) # 700 is more than the number required to 2075 for monthly data now
