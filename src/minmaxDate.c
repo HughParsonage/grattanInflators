@@ -109,10 +109,10 @@ static void ierr_if_outside(int xminmax[2], const int * xp, R_xlen_t N, int nThr
           idate2char8(yyyy_mm_min, xminmax[0]);
           idate2char8(yyyy_mm_xpi, xp[i]);
           error("`%s[%lld] = %s` which is prior to the earliest allowable date: %s",
-                var, i + 1, yyyy_mm_xpi, yyyy_mm_min);
+                var, (long long)i + 1, yyyy_mm_xpi, yyyy_mm_min);
         } else {
           error("`%s[%lld] = %d` (int) which is prior to the earliest allowable date: %d.",
-                var, i + 1, xp[i], xminmax[0]);
+                var, (long long)i + 1, xp[i], xminmax[0]);
         }
       }
       if (xp[i] > xminmax[1]) {
@@ -122,10 +122,10 @@ static void ierr_if_outside(int xminmax[2], const int * xp, R_xlen_t N, int nThr
           idate2char8(yyyy_mm_max, xminmax[1]);
           idate2char8(yyyy_mm_xpi, xp[i]);
           error("`%s[%lld] = %s` which is after the latest allowable date: %s",
-                var, i + 1, yyyy_mm_xpi, yyyy_mm_max);
+                var, (long long)i + 1, yyyy_mm_xpi, yyyy_mm_max);
         } else {
           error("`%s[%lld] = %d` (int) which is after the latest allowable date: %d.",
-                var, i + 1, xp[i], xminmax[1]);
+                var, (long long)i + 1, xp[i], xminmax[1]);
         }
       }
     }
@@ -162,11 +162,11 @@ static void serr_if_outside(int xminmax[2], const SEXP * xp, R_xlen_t N, int nTh
       const char * xi = CHAR(xp[i]);
       if (leqcc1(xi, yyyy_mm_min, false)) {
         error("`%s[%lld] = %s` which is prior to the earliest allowable date: %s.",
-              var, i + 1, xi, (const char *)yyyy_mm_min);
+              var, (long long)i + 1, xi, (const char *)yyyy_mm_min);
       }
       if (!leqcc1(xi, yyyy_mm_max, false)) {
         error("`%s[%lld] = %s` which is after the latest allowable date: %s.",
-              var, i + 1, xi, (const char *)yyyy_mm_max);
+              var, (long long)i + 1, xi, (const char *)yyyy_mm_max);
       }
     }
   }

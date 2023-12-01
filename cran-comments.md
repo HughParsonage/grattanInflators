@@ -2,4 +2,4 @@
 
 0 errors | 0 warnings | 1 note
 
-* This is a quick package update correcting a example.
+* This is a package update for Wformat examples.

@@ -1,3 +1,10 @@
+## grattanInflators 0.5.0
+
+* `download_data` now downloads/updates monthly CPI data
+
+### Internal
+* Fix -Wformat warnings from CRAN about `R_xlen_t` printing.
+
 ## grattanInflators 0.4.2
 
 * Fixed an error for out-of-date example

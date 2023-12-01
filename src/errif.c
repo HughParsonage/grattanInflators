@@ -9,5 +9,5 @@ void prohibit_vector_recyling(SEXP x, SEXP y, const char * wx, const char * wy) 
   }
   error("`length(%s) = %lld`, yet `length(%s) = %lld`. "
           "Vectors must be of equal length, or length-one.",
-          wx, xlength(x), wy, xlength(y));
+          wx, (long long)xlength(x), wy, (long long)xlength(y));
 }

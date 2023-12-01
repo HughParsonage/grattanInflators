@@ -166,8 +166,8 @@ SEXP C_coalesce_forecast_12mo_avg(SEXP ans, SEXP From, SEXP To, SEXP Index, SEXP
   if (!isInteger(From) || !isInteger(To)) {
     return R_NilValue; // # nocov
   }
-  const int * xp = INTEGER(From);
-  const int * yp = INTEGER(To);
+
+
   R_xlen_t N_x = xlength(From);
   R_xlen_t N_y = xlength(To);
   if (N_x < N_y) {
@@ -182,8 +182,8 @@ SEXP C_coalesce_forecast_12mo_avg(SEXP ans, SEXP From, SEXP To, SEXP Index, SEXP
 
   int index_min = asInteger(IndexMinIDate);
   int freq = asInteger(IndexFreq);
-  const unsigned int div = 12 / freq;
-  const unsigned int p_index_min = p_search(index_min) / div;
+  // const unsigned int div = 12 / freq;
+  // const unsigned int p_index_min = p_search(index_min) / div;
   double * ansp = REAL(ans);
 
   const double r_future = future_rate_12mo(index, freq, index_len);
@@ -191,7 +191,7 @@ SEXP C_coalesce_forecast_12mo_avg(SEXP ans, SEXP From, SEXP To, SEXP Index, SEXP
   YearMonth index_min_YM = idate2YearMonth(index_min);
   YearMonth index_max_ym = idate2YearMonth(index_min + index_len - 1);
   const int index_max_yr = index_max_ym.year + MIN_YEAR;
-  const int index_max_mo = index_max_ym.month;
+  // const int index_max_mo = index_max_ym.month;
 
 
 
@@ -199,10 +199,13 @@ SEXP C_coalesce_forecast_12mo_avg(SEXP ans, SEXP From, SEXP To, SEXP Index, SEXP
     if (isInteger(To)) {
       const int * xp = INTEGER(From);
       const int * yp = INTEGER(To);
+      if (xp[0] != yp[0]) {
+        ansp[0] = 1;
+      }
       FORLOOP({
         if (ISNAN(ansp[i])) {
           int ypi = yp[i];
-          int xpi = xp[i];
+          // int xpi = xp[i];
           if (ypi < index_max_yr) {
             YearMonth YM_from;
             YM_from.year = ypi - MIN_YEAR;
@@ -218,8 +221,7 @@ SEXP C_coalesce_forecast_12mo_avg(SEXP ans, SEXP From, SEXP To, SEXP Index, SEXP
       })
 
     } else {
-      const int * xp = INTEGER(From);
-      const SEXP * yp = STRING_PTR(To);
+
     }
 
   } else {

@@ -9,7 +9,8 @@
 \usage{
 content2series_id(
   broad_cat = c("cpi", "lfi", "wpi"),
-  adjustment = c("original", "seasonal", "trend", "trimmed-mean")
+  adjustment = c("original", "seasonal", "trend", "trimmed-mean", "monthly-original",
+    "monthly-seasonal", "monthly-excl-volatile")
 )
 
 download_data(series_id = NULL)

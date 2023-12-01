@@ -40,7 +40,8 @@ series_id_int <- function(series_id) {
 #' @rdname abs-conn
 #' @export
 content2series_id <- function(broad_cat = c("cpi", "lfi", "wpi"),
-                              adjustment = c("original", "seasonal", "trend", "trimmed-mean")) {
+                              adjustment = c("original", "seasonal", "trend", "trimmed-mean",
+                                             "monthly-original", "monthly-seasonal", "monthly-excl-volatile")) {
   cj <- CJ(broad_cat = broad_cat,
            adjustment = adjustment,
            sorted = FALSE)
@@ -57,6 +58,9 @@ name2series_id <- function(name, err_ifnotfound = TRUE) {
            "aus-cpi-original" = "A2325846C",
            "aus-cpi-seasonal" = "A3604506F",
            "aus-cpi-trimmed-mean" = "A3604509L",
+           "aus-cpi-monthly-original" = "A128478317T",
+           "aus-cpi-monthly-seasonal" = "A128481587A",
+           "aus-cpi-monthly-excl-volatile" = "A128473239F",
            "aus-lfi-original" = "A84423085A",
            "aus-lfi-seasonal" = "A84423043C",
            "aus-lfi-trend" = "A84423127L",

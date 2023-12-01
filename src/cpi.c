@@ -238,7 +238,7 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
       if (N != 1) {
         error("x was type '%s' and `length(x) = %lld` but `%lld` was expected",
               type2char(TYPEOF(x)),
-              xlength(x), N);
+              (long long)xlength(x), (long long)N);
       }
       N = xlength(x);
     }
@@ -256,7 +256,7 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
 
   if (!isReal(Index)) {
     error("Index was type '%s' and length-%lld, only REALSXP.",
-          type2char(TYPEOF(Index)), xlength(Index));
+          type2char(TYPEOF(Index)), (long long)xlength(Index));
   }
   // # nocov end
 

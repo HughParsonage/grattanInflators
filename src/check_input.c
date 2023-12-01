@@ -129,22 +129,22 @@ static void check_valid_strings(const SEXP * xp, R_xlen_t N, int check, int nThr
         continue;
       case ERR_CHAR_NOT_YYYY:
         error("`%s` contained invalid element:\n\t %s[%lld] = %s\n(must start with YYYY)",
-              var, var, i + 1, CHAR(xp[i]));
+              var, var, (long long)i + 1, CHAR(xp[i]));
       case ERR_CHAR_NO_MONTH:
         error("`%s` contained invalid element:\n\t %s[%lld] = %s\n(No month)",
-              var, var, i + 1, CHAR(xp[i]));
+              var, var, (long long)i + 1, CHAR(xp[i]));
       case ERR_CHAR_BAD_MDAY:
         error("`%s` contained invalid element:\n\t %s[%lld] = %s\n(Day component invalid)",
-              var, var, i + 1, CHAR(xp[i]));
+              var, var, (long long)i + 1, CHAR(xp[i]));
       case ERR_CHAR_YR_RANGE:
         error("`%s` contained invalid element:\n\t %s[%lld] = %s\n(Years must be between %d and %d)",
-              var, var, i + 1, CHAR(xp[i]), MIN_YEAR, MAX_YEAR);
+              var, var, (long long)i + 1, CHAR(xp[i]), MIN_YEAR, MAX_YEAR);
       case ERR_CHAR_FY_QUART:
         error("`%s` contained invalid element:\n\t %s[%lld] = %s\n(Invalid fy)",
-              var, var, i + 1, CHAR(xp[i]));
+              var, var, (long long)i + 1, CHAR(xp[i]));
       case ERR_CHAR_YYYY__QQ:
         error("`%s` contained invalid element:\n\t %s[%lld] = %s\n(Invalid YYYY-QQ).",
-              var, var, i + 1, CHAR(xp[i]));
+              var, var, (long long)i + 1, CHAR(xp[i]));
       default:
         error("`%s` contained invalid element but error condition not known.", var);
       }
