@@ -1,6 +1,7 @@
 ## grattanInflators 0.5.1
 
-* Bug fix: `cpi_` functions did not pass down `FORECAST` argument
+* Bug fix: `cpi_` functions did not pass down `FORECAST` argument; `wage_`, `lfi_` did not
+  pass down `series` argument
 
 ## grattanInflators 0.5.0
 

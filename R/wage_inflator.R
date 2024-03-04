@@ -36,8 +36,7 @@ wage_inflator <- function(from = NULL, to = NULL,
                           series = wpi_original(),
                           x = NULL,
                           nThread = getOption("grattanInflators.nThread", 1L)) {
-  Index <- GET_SERIES(wpi2series_id("original"))
-  Inflate(from, to, index = Index,
+  Inflate(from, to, index = series,
           check = check,
           x = x,
           nThread = nThread)
