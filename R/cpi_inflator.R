@@ -170,31 +170,31 @@ cpi_seasonal <- function(..., FORECAST = FALSE, LEVEL = "mean") {
 #' @rdname cpi_inflator
 #' @export
 cpi_original <- function(..., FORECAST = FALSE, LEVEL = "mean") {
-  cpi_custom("original", ...)
+  cpi_custom("original", ..., FORECAST = FORECAST, LEVEL = LEVEL)
 }
 
 #' @rdname cpi_inflator
 #' @export
 cpi_trimmed_mean <- function(..., FORECAST = FALSE, LEVEL = "mean") {
-  cpi_custom("trimmed.mean", ...)
+  cpi_custom("trimmed.mean", ..., FORECAST = FORECAST, LEVEL = LEVEL)
 }
 
 #' @rdname cpi_inflator
 #' @export
 cpi_monthly_original <- function(..., FORECAST = FALSE, LEVEL = "mean") {
-  cpi_custom("monthly-original", ...)
+  cpi_custom("monthly-original", ..., FORECAST = FORECAST, LEVEL = LEVEL)
 }
 
 #' @rdname cpi_inflator
 #' @export
 cpi_monthly_seasonal <- function(..., FORECAST = FALSE, LEVEL = "mean") {
-  cpi_custom("monthly-seasonal", ...)
+  cpi_custom("monthly-seasonal", ..., FORECAST = FORECAST, LEVEL = LEVEL)
 }
 
 #' @rdname cpi_inflator
 #' @export
 cpi_monthly_excl_volatile <- function(..., FORECAST = FALSE, LEVEL = "mean") {
-  cpi_custom("monthly-excl-volatile", ...)
+  cpi_custom("monthly-excl-volatile", ..., FORECAST = FORECAST, LEVEL = LEVEL)
 }
 
 cpi_seasonal_fy <- function(...) {

@@ -1,3 +1,7 @@
+## grattanInflators 0.5.1
+
+* Bug fix: `cpi_` functions did not pass down `FORECAST` argument
+
 ## grattanInflators 0.5.0
 
 * `download_data` now downloads/updates monthly CPI data
