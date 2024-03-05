@@ -23,6 +23,37 @@ static bool leqcc1(const char * x, char y[8], bool equal_ok) {
   return equal_ok;
 }
 
+static bool leqfy(const char *x, const char *y, int fy_month) {
+  // x is an fy string, e.g., "2020-21"
+  // y is a yyyy-mm string, e.g., "2021-03"
+
+  // Step 1: Parse the fiscal year string to get the end year
+  char fy_end_str[5]; // To store the end year part of the fiscal year string
+  strncpy(fy_end_str, x + 5, 2); // Copy the last two digits
+  fy_end_str[2] = '\0'; // Null-terminate the string
+  int fy_end_prefix = (*x - '0') * 1000 + (*(x + 1) - '0') * 100;
+  int fy_end = fy_end_prefix + atoi(fy_end_str);
+
+  // Step 2: Parse the yyyy-mm string
+  char year_str[5], month_str[3];
+  strncpy(year_str, y, 4);
+  year_str[4] = '\0';
+  strncpy(month_str, y + 5, 2);
+  month_str[2] = '\0';
+  int year = atoi(year_str);
+  int month = atoi(month_str);
+
+  // Step 3: Compare
+  if (fy_end < year) {
+    return true; // The fiscal year ends before the year of the date
+  } else if (fy_end == year) {
+    if (fy_month <= month) {
+      return true; // The fiscal year ends on the same year and before or in the same month
+    }
+  }
+  return false; // The fiscal year ends after the date
+}
+
 static void minDate(char yyyy_mm[8], const SEXP * xp, R_xlen_t N) {
   for (R_xlen_t i = 0; i < N; ++i) {
     const char * xi = CHAR(xp[i]);
@@ -201,7 +232,7 @@ static bool ianyBeyond(int max_date, const int * xp, R_xlen_t N, int nThread) {
   return o;
 }
 
-static bool sanyBeyond(int max_date, const SEXP * xp, R_xlen_t N, int nThread) {
+static bool sanyBeyond(int max_date, const SEXP * xp, R_xlen_t N, int fy_month, int nThread) {
   char yyyy_mm_max[8] = {0};
   idate2char8(yyyy_mm_max, max_date);
   bool o = false;
@@ -213,7 +244,12 @@ static bool sanyBeyond(int max_date, const SEXP * xp, R_xlen_t N, int nThread) {
       continue;
     }
     const char * xi = CHAR(xp[i]);
-    if (!leqcc1(xi, yyyy_mm_max, false)) {
+    if (length(xp[i]) == 7) {
+      // fy month, possibly the year earlier in the first four chars
+      if (!leqfy(xi, yyyy_mm_max, fy_month)) {
+        o = true;
+      }
+    } else if (!leqcc1(xi, yyyy_mm_max, false)) {
       o = true;
     }
   }
@@ -228,13 +264,14 @@ SEXP C_minDate(SEXP x) {
   return ScalarString(mkCharCE(yyyy_mm, CE_UTF8));
 }
 
-SEXP C_anyBeyond(SEXP x, SEXP maxDate, SEXP nthreads) {
+SEXP C_anyBeyond(SEXP x, SEXP maxDate, SEXP Fymonth, SEXP nthreads) {
   const int max_date = asInteger(maxDate);
+  const int fy_month = asInteger(Fymonth);
   int nThread = as_nThread(nthreads);
   R_xlen_t N = xlength(x);
   switch(TYPEOF(x)) {
   case STRSXP:
-   return ScalarLogical(sanyBeyond(max_date, STRING_PTR(x), N, nThread));
+   return ScalarLogical(sanyBeyond(max_date, STRING_PTR(x), N, fy_month, nThread));
   case INTSXP:
     return ScalarLogical(ianyBeyond(max_date, INTEGER(x), N, nThread));
   default:

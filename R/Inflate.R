@@ -53,8 +53,8 @@ Inflate <- function(from, to,
   minDate <- index_dates[1L]
   maxDate <- index_dates[length(index_dates)]
   if (check < 2L) {
-    from_beyond <- .Call("C_anyBeyond", from, maxDate, nThread, PACKAGE = packageName())
-    to_beyond <- .Call("C_anyBeyond", to, maxDate, nThread, PACKAGE = packageName())
+    from_beyond <- .Call("C_anyBeyond", from, maxDate, fy_month, nThread, PACKAGE = packageName())
+    to_beyond <- .Call("C_anyBeyond", to, maxDate, fy_month, nThread, PACKAGE = packageName())
     if (from_beyond || to_beyond) {
       if (check == 1L) {
         warning("`from` or `to` had dates beyond the last date in the series (", as.character(maxDate), "), so projected values will be used.")
