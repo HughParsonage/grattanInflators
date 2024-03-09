@@ -90,6 +90,7 @@ int string2month(const char * x);
 // check_input
 
 // YearMonth
+YearMonth YM_NA(void);
 YearMonth idate2YearMonth(int x);
 uint16_t year(int x) ;
 unsigned int p_search(int x);

@@ -1,6 +1,6 @@
 #include "grattanInflator.h"
 
-static YearMonth YM_NA(void) {
+YearMonth YM_NA(void) {
   YearMonth O;
   O.year = 0;
   O.month = 15;

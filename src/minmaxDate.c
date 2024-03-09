@@ -64,6 +64,9 @@ static YearMonth maxDate(const SEXP * xp, R_xlen_t N, int fy_month, R_xlen_t * j
     }
     ++i;
   }
+  if (i == N) {
+    return YM_NA();
+  }
   YearMonth m;
   m.year = string2year(CHAR(xp[i]));
   m.month = string2month(CHAR(xp[i]));
@@ -308,6 +311,9 @@ static void update_max_ymf(int * yr_max1, int * yr_max2, int * mo_max, const cha
 static bool sanyBeyond(int max_date, const SEXP * xp, R_xlen_t N, int fy_month, int nThread) {
   R_xlen_t j = -1;
   YearMonth ym_max_xp = maxDate(xp, N, fy_month, &j);
+  if (j < 0) {
+    return false;
+  }
   YearMonth ym_max_ = idate2YearMonth(max_date);
   return !leqYM(&ym_max_xp, &ym_max_);
 }
