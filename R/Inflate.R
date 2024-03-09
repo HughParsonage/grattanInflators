@@ -81,10 +81,10 @@ Inflate <- function(from, to,
 
   from <- .check_input(from,
                        minDate = minDate, maxDate = maxDate,
-                       check = check, nThread = nThread, var = from_vname)
+                       check = check, nThread = nThread, fy_month = fy_month, var = from_vname)
   to <- .check_input(to,
                      minDate = minDate, maxDate = maxDate,
-                     check = check, nThread = nThread, var = to_vname)
+                     check = check, nThread = nThread, fy_month = fy_month, var = to_vname)
 
   if (inherits(from, "IDate") && inherits(to, "IDate") && length(from) >= length(to)) {
     if (is.null(x)) {

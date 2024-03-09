@@ -1,5 +1,9 @@
 #include "grattanInflator.h"
 
+bool leqYM(YearMonth * A, YearMonth * B) {
+  return (A->year < B->year) || (A->year == B->year && A->month <= B->month);
+}
+
 static bool leqcc1(const char * x, char y[8], bool equal_ok) {
   if (x[0] != y[0]) {
     return x[0] < y[0];
@@ -23,36 +27,6 @@ static bool leqcc1(const char * x, char y[8], bool equal_ok) {
   return equal_ok;
 }
 
-static bool leqfy(const char *x, const char *y, int fy_month) {
-  // x is an fy string, e.g., "2020-21"
-  // y is a yyyy-mm string, e.g., "2021-03"
-
-  // Step 1: Parse the fiscal year string to get the end year
-  char fy_end_str[5]; // To store the end year part of the fiscal year string
-  strncpy(fy_end_str, x + 5, 2); // Copy the last two digits
-  fy_end_str[2] = '\0'; // Null-terminate the string
-  int fy_end_prefix = (*x - '0') * 1000 + (*(x + 1) - '0') * 100;
-  int fy_end = fy_end_prefix + atoi(fy_end_str);
-
-  // Step 2: Parse the yyyy-mm string
-  char year_str[5], month_str[3];
-  strncpy(year_str, y, 4);
-  year_str[4] = '\0';
-  strncpy(month_str, y + 5, 2);
-  month_str[2] = '\0';
-  int year = atoi(year_str);
-  int month = atoi(month_str);
-
-  // Step 3: Compare
-  if (fy_end < year) {
-    return true; // The fiscal year ends before the year of the date
-  } else if (fy_end == year) {
-    if (fy_month <= month) {
-      return true; // The fiscal year ends on the same year and before or in the same month
-    }
-  }
-  return false; // The fiscal year ends after the date
-}
 
 static void minDate(char yyyy_mm[8], const SEXP * xp, R_xlen_t N) {
   for (R_xlen_t i = 0; i < N; ++i) {
@@ -82,6 +56,55 @@ static void minDate(char yyyy_mm[8], const SEXP * xp, R_xlen_t N) {
   }
 }
 
+static YearMonth maxDate(const SEXP * xp, R_xlen_t N, int fy_month, R_xlen_t * j) {
+  R_xlen_t i = 0;
+  while (i < N) {
+    if (length(xp[i]) == 10 || length(xp[i]) == 7) {
+      break;
+    }
+    ++i;
+  }
+  YearMonth m;
+  m.year = string2year(CHAR(xp[i]));
+  m.month = string2month(CHAR(xp[i]));
+  for (; i < N; ++i) {
+    if (length(xp[i]) != 10 && length(xp[i]) != 7) {
+      continue;
+    }
+    const char * x_i = CHAR(xp[i]);
+    int y_i = string2year(x_i);
+    int m_i = string2month(x_i);
+    if (length(xp[i]) == 10) {
+      if (m.year > y_i) {
+        continue;
+      }
+      if (m.year < y_i || m.month < m_i) {
+        m.year = y_i;
+        m.month = m_i;
+        *j = i;
+      }
+    } else {
+      if (m.year < y_i) {
+        m.year = y_i + (fy_month < 7);
+        m.month = fy_month;
+        *j = i;
+        continue;
+      }
+      if (m.year == y_i) {
+        if (fy_month > 7 && fy_month < m.month) {
+          continue;
+        }
+        if (fy_month < 7) {
+          m.year = y_i + 1;
+          m.month = fy_month;
+          *j = i;
+        }
+      }
+    }
+  }
+  return m;
+}
+
 void idate2char8(char yyyy_mm[8], int x) {
   if (x < MIN_IDATE) {
     strcpy(yyyy_mm, "1948-01");
@@ -94,6 +117,28 @@ void idate2char8(char yyyy_mm[8], int x) {
   YearMonth xYM = idate2YearMonth(x);
   int yr = xYM.year + MIN_YEAR;
   int mo = xYM.month;
+  const char * digits = "0123456789";
+  yyyy_mm[0] = yr < 2000 ? '1' : '2';
+  yyyy_mm[1] = digits[(yr / 100) % 10];
+  yyyy_mm[2] = digits[(yr / 10) % 10];
+  yyyy_mm[3] = digits[yr % 10];
+  yyyy_mm[4] = '-';
+  yyyy_mm[5] = mo >= 10 ? '1' : '0';
+  yyyy_mm[6] = digits[(mo % 10)];
+}
+
+void idate2charf(char yyyy_mm[8], int x, int fy_month) {
+  if (x < MIN_IDATE) {
+    strcpy(yyyy_mm, "1948-01");
+    return;
+  }
+  if (x > MAX_IDATE) {
+    strcpy(yyyy_mm, "2075-12");
+    return;
+  }
+  YearMonth xYM = idate2YearMonth(x);
+  int yr = xYM.year + MIN_YEAR - (fy_month >= 7);
+  int mo = fy_month;
   const char * digits = "0123456789";
   yyyy_mm[0] = yr < 2000 ? '1' : '2';
   yyyy_mm[1] = digits[(yr / 100) % 10];
@@ -167,11 +212,13 @@ static void ierr_if_outside(int xminmax[2], const int * xp, R_xlen_t N, int nThr
 
 
 static void serr_if_outside(int xminmax[2], const SEXP * xp, R_xlen_t N, int nThread, const char * var,
-                            bool was_date) {
+                            bool was_date, int fy_month) {
   char yyyy_mm_min[8] = {0};
   char yyyy_mm_max[8] = {0};
+  char yyyy_fy_max[8] = {0};
   idate2char8(yyyy_mm_min, xminmax[0]);
   idate2char8(yyyy_mm_max, xminmax[1]);
+  idate2charf(yyyy_fy_max, xminmax[1], fy_month);
   bool o = false;
 #if defined _OPENMP && _OPENMP >= 201511
 #pragma omp parallel for num_threads(nThread) reduction(|| : o)
@@ -181,11 +228,17 @@ static void serr_if_outside(int xminmax[2], const SEXP * xp, R_xlen_t N, int nTh
       continue;
     }
     const char * xi = CHAR(xp[i]);
-    if (leqcc1(xi, yyyy_mm_min, false) || !leqcc1(xi, yyyy_mm_max, false)) {
+    if (leqcc1(xi, yyyy_mm_min, false) || !leqcc1(xi, yyyy_mm_max, true) || !leqcc1(xi, yyyy_fy_max, true)) {
       o = true;
     }
   }
   if (o) {
+    R_xlen_t j = -1;
+    YearMonth max_YMDate = maxDate(xp, N, fy_month, &j);
+    YearMonth xmax_YMDate = idate2YearMonth(xminmax[1]);
+    bool maybe_exceeded = max_YMDate.year > xmax_YMDate.year ||
+      (max_YMDate.year == xmax_YMDate.year && max_YMDate.month > xmax_YMDate.month);
+
     for (R_xlen_t i = 0; i < N; ++i) {
       if (xp[i] == NA_STRING || length(xp[i]) < 7) {
         continue;
@@ -195,15 +248,16 @@ static void serr_if_outside(int xminmax[2], const SEXP * xp, R_xlen_t N, int nTh
         error("`%s[%lld] = %s` which is prior to the earliest allowable date: %s.",
               var, (long long)i + 1, xi, (const char *)yyyy_mm_min);
       }
-      if (!leqcc1(xi, yyyy_mm_max, false)) {
+
+      if (maybe_exceeded && i == j) {
         error("`%s[%lld] = %s` which is after the latest allowable date: %s.",
-              var, (long long)i + 1, xi, (const char *)yyyy_mm_max);
+              var, (long long)j + 1, xi, (const char *)yyyy_mm_max);
       }
     }
   }
 }
 
-void err_if_anyOutsideDate(int minmax[2], SEXP x, int nThread, const char * var, bool was_date) {
+void err_if_anyOutsideDate(int minmax[2], SEXP x, int nThread, const char * var, bool was_date, int fy_month) {
   switch(TYPEOF(x)) {
   case INTSXP:
     ierr_if_outside(minmax, INTEGER(x), xlength(x), nThread, var, was_date);
@@ -214,7 +268,7 @@ void err_if_anyOutsideDate(int minmax[2], SEXP x, int nThread, const char * var,
     break;
     // # nocov end
   case STRSXP:
-    serr_if_outside(minmax, STRING_PTR(x), xlength(x), nThread, var, was_date);
+    serr_if_outside(minmax, STRING_PTR(x), xlength(x), nThread, var, was_date, fy_month);
     break;
   }
 }
@@ -232,28 +286,30 @@ static bool ianyBeyond(int max_date, const int * xp, R_xlen_t N, int nThread) {
   return o;
 }
 
-static bool sanyBeyond(int max_date, const SEXP * xp, R_xlen_t N, int fy_month, int nThread) {
-  char yyyy_mm_max[8] = {0};
-  idate2char8(yyyy_mm_max, max_date);
-  bool o = false;
-#if defined _OPENMP && _OPENMP >= 201511
-#pragma omp parallel for num_threads(nThread) reduction(|| : o)
-#endif
-  for (R_xlen_t i = 0; i < N; ++i) {
-    if (o || xp[i] == NA_STRING || length(xp[i]) < 7) {
-      continue;
+// updates the max year, month
+static void update_max_ymf(int * yr_max1, int * yr_max2, int * mo_max, const char * xi, int ni) {
+  int yr = string2year(xi);
+  if (ni == 7) {
+    if (*yr_max2 < yr) {
+      *yr_max2 = yr;
     }
-    const char * xi = CHAR(xp[i]);
-    if (length(xp[i]) == 7) {
-      // fy month, possibly the year earlier in the first four chars
-      if (!leqfy(xi, yyyy_mm_max, fy_month)) {
-        o = true;
+  } else if (ni == 10) {
+    if (*yr_max1 < yr) {
+      *yr_max1 = yr;
+    } else if (*yr_max1 == yr) {
+      int mo = string2month(xi);
+      if (*mo_max < mo) {
+        *mo_max = mo;
       }
-    } else if (!leqcc1(xi, yyyy_mm_max, false)) {
-      o = true;
     }
   }
-  return o;
+}
+
+static bool sanyBeyond(int max_date, const SEXP * xp, R_xlen_t N, int fy_month, int nThread) {
+  R_xlen_t j = -1;
+  YearMonth ym_max_xp = maxDate(xp, N, fy_month, &j);
+  YearMonth ym_max_ = idate2YearMonth(max_date);
+  return !leqYM(&ym_max_xp, &ym_max_);
 }
 
 SEXP C_minDate(SEXP x) {

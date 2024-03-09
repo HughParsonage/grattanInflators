@@ -101,7 +101,7 @@ int yqi(YearMonth YM);
 void prohibit_vector_recyling(SEXP x, SEXP y, const char * wx, const char * wy);
 
 // minmaxDate.c
-void err_if_anyOutsideDate(int minmax[2], SEXP x, int nThread, const char * var, bool was_date);
+void err_if_anyOutsideDate(int minmax[2], SEXP x, int nThread, const char * var, bool was_date, int fy_month);
 
 // omp-diagnose.c
 int as_nThread(SEXP x);
