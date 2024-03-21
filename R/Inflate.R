@@ -54,6 +54,12 @@ Inflate <- function(from, to,
   index_dates <- as.IDate(.subset2(index, "date"))
   minDate <- index_dates[1L]
   maxDate <- index_dates[length(index_dates)]
+  if (minDate < "1948-01-01" || minDate > "2075-12-31") {
+    stop("index[1] = ", as.character(minDate), " but the only supported dates are between 1948 and 2075")
+  }
+  if (maxDate < "1948-01-01" || maxDate > "2075-12-31") {
+    stop("index[1] = ", as.character(maxDate), " but the only supported dates are between 1948 and 2075")
+  }
 
   from_beyond <- .check_input(from,
                               minDate = minDate, maxDate = maxDate,

@@ -306,7 +306,6 @@ void format_1_idate(char oi[11], int x) {
 
   // this should be the number of days between the array index identified and x
   int d = x - ARR[p] + 1;
-  Rprintf("d = %d\n", d);
 
   const char * digits = "0123456789";
   oi[0] = (yr >= 2000) ? '2' : '1';

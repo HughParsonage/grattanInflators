@@ -257,14 +257,9 @@ void check_intsxp(bool * any_beyond,
         }
         char oi[11] = {0};
         char oj[11] = {0};
-        Rprintf("xpi = %d", xp[i]);
-        Rprintf("max_date = %d", max_date);
-        Rprintf("\n");
         format_1_idate(oi, xp[i]);
-        Rprintf(" <-> \n");
         format_1_idate(oj, max_date);
-        Rprintf("===\n");
-        error("(ERR265)`check >= 2` yet `%s[%lld] = %s`, which is later than the latest date in the series (%s).",
+        error("`check >= 2` yet `%s[%lld] = %s`, which is later than the latest date in the series (%s). [ERR262]",
               var, (long long)i + 1, (const char *)oi, (const char *)oj);
       }
     }
@@ -321,6 +316,9 @@ SEXP C_check_input(SEXP x, SEXP Var, SEXP Check, SEXP Class, SEXP minDate, SEXP 
   bool was_date = xclass == CLASS_Date || xclass == CLASS_IDate;
   const int min_date = asInteger(minDate);
   const int max_date = asInteger(maxDate);
+  if (min_date < MIN_IDATE || min_date > MAX_IDATE || max_date < MIN_IDATE || max_date > MAX_IDATE) {
+    error("(Internal error C_check_input 320): min_date, max_date out-of-range."); // # nocov
+  }
   bool any_beyond = false;
 
   switch(TYPEOF(x)) {
