@@ -257,9 +257,11 @@ void check_intsxp(bool * any_beyond,
         }
         char oi[11] = {0};
         char oj[11] = {0};
+        Rprintf("xpi = %d", xp[i]);
         Rprintf("max_date = %d", max_date);
         Rprintf("\n");
         format_1_idate(oi, xp[i]);
+        Rprintf(" <-> \n");
         format_1_idate(oj, max_date);
         Rprintf("===\n");
         error("(ERR265)`check >= 2` yet `%s[%lld] = %s`, which is later than the latest date in the series (%s).",

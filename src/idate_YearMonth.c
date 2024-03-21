@@ -304,6 +304,7 @@ void format_1_idate(char oi[11], int x) {
   int yr = p / 12 + MIN_YEAR;
   int mo = (p % 12) + 1;
 
+  // this should be the number of days between the array index identified and x
   int d = x - ARR[p] + 1;
   Rprintf("d = %d\n", d);
 
