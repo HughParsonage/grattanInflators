@@ -352,3 +352,33 @@ SEXP C_all_dates(SEXP x) {
   return ans;
 }
 
+void iminmax(int xminmax[2], const int * xp, R_xlen_t N, const int fy_month, int nThread) {
+  int xmin = xp[0];
+  int xmax = xp[0];
+  if (xmin == NA_INTEGER) {
+    xmin = INT_MAX;
+    // xmax will be INT_MIN naturally; also can signal a totally constant xp
+  }
+#if defined _OPENMP && _OPENMP >= 201511
+#pragma omp parallel for num_threads(nThread) reduction(min : xmin) reduction(max : xmax)
+#endif
+  for (R_xlen_t i = 1; i < N; ++i) {
+    int xpi = xp[i];
+    if (xpi == NA_INTEGER) {
+      continue;
+    }
+    if (xpi >= xmin && xpi <= xmax) {
+      continue;
+    }
+    if (xpi < xmin) {
+      xmin = xpi;
+    } else {
+      xmax = xpi;
+    }
+  }
+  xminmax[0] = xmin;
+  xminmax[1] = xmax;
+}
+
+
+

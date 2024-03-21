@@ -46,15 +46,24 @@ Inflate <- function(from, to,
   to_vname <- varname(to, "to")
 
   prohibit_vector_recycling(from, to)
+  from_class <- supported_classes(class(from))
+  to_class <- supported_classes(class(to))
   from <- ensure_date(from)
   to <- ensure_date(to)
 
   index_dates <- as.IDate(.subset2(index, "date"))
   minDate <- index_dates[1L]
   maxDate <- index_dates[length(index_dates)]
+
+  from_beyond <- .check_input(from,
+                              minDate = minDate, maxDate = maxDate,
+                              check = check, nThread = nThread, fy_month = fy_month, var = from_vname,
+                              xclass = from_class)
+  to_beyond <- .check_input(to,
+                            minDate = minDate, maxDate = maxDate,
+                            check = check, nThread = nThread, fy_month = fy_month, var = to_vname,
+                            xclass = to_class)
   if (check < 2L) {
-    from_beyond <- .Call("C_anyBeyond", from, maxDate, fy_month, nThread, PACKAGE = packageName())
-    to_beyond <- .Call("C_anyBeyond", to, maxDate, fy_month, nThread, PACKAGE = packageName())
     if (from_beyond || to_beyond) {
       if (check == 1L) {
         warning("`from` or `to` had dates beyond the last date in the series (", as.character(maxDate), "), so projected values will be used.")
@@ -79,12 +88,7 @@ Inflate <- function(from, to,
     return(x)
   }
 
-  from <- .check_input(from,
-                       minDate = minDate, maxDate = maxDate,
-                       check = check, nThread = nThread, fy_month = fy_month, var = from_vname)
-  to <- .check_input(to,
-                     minDate = minDate, maxDate = maxDate,
-                     check = check, nThread = nThread, fy_month = fy_month, var = to_vname)
+
 
   if (inherits(from, "IDate") && inherits(to, "IDate") && length(from) >= length(to)) {
     if (is.null(x)) {
