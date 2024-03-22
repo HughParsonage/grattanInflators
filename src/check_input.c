@@ -243,7 +243,11 @@ void check_intsxp(bool * any_beyond,
         }
         char oi[11] = {0};
         char oj[11] = {0};
+        Rprintf("gormat_1_idate(oi, %d)\n", xp[i]);
         format_1_idate(oi, xp[i]);
+        Rprintf("go");
+        Rprintf("rmat_1_idate(oj, %d)", min_date);
+        Rprintf("<-\n");
         format_1_idate(oj, min_date);
         error("`%s[%lld] = %s`, which is earlier than the earliest date in the series (%s).",
               var, (long long)i + 1, (const char *)oi, (const char *)oj);
@@ -257,7 +261,11 @@ void check_intsxp(bool * any_beyond,
         }
         char oi[11] = {0};
         char oj[11] = {0};
+        Rprintf("format_1_idate(oi, %d)\n", xp[i]);
         format_1_idate(oi, xp[i]);
+        Rprintf("fo");
+        Rprintf("rmat_1_idate(oj, %d)", max_date);
+        Rprintf("<-\n");
         format_1_idate(oj, max_date);
         error("`check >= 2` yet `%s[%lld] = %s`, which is later than the latest date in the series (%s). [ERR262]",
               var, (long long)i + 1, (const char *)oi, (const char *)oj);
