@@ -236,36 +236,39 @@ void check_intsxp(bool * any_beyond,
   iminmax(xminmax, xp, N, 3, nThread);
 
   if (was_date) {
-    if (min_date > xminmax[0]) {
+    if (min_date > xminmax[0] || xminmax[0] < MIN_IDATE) {
       for (R_xlen_t i = 0; i < N; ++i) {
         if (xp[i] >= min_date || xp[i] == NA_INTEGER) {
           continue;
         }
+        // Need to error for minimum supported dates since format_1_idate
+        // relies on xp[i] being in the correct range
+        if (xp[i] < MIN_IDATE) {
+          error("`%s[%lld] = %d`, which is earlier than the earliest supported date (1948-01-01).",
+                var, (long long)i + 1, xp[i]);
+        }
         char oi[11] = {0};
         char oj[11] = {0};
-        Rprintf("gormat_1_idate(oi, %d)\n", xp[i]);
         format_1_idate(oi, xp[i]);
-        Rprintf("go");
-        Rprintf("rmat_1_idate(oj, %d)", min_date);
-        Rprintf("<-\n");
         format_1_idate(oj, min_date);
         error("`%s[%lld] = %s`, which is earlier than the earliest date in the series (%s).",
               var, (long long)i + 1, (const char *)oi, (const char *)oj);
       }
     }
     *any_beyond = max_date < xminmax[1];
-    if (check >= 2 && *any_beyond) {
+    if ((check >= 2 || xminmax[1] > MAX_IDATE) && *any_beyond) {
       for (R_xlen_t i = 0; i < N; ++i) {
         if (xp[i] <= max_date || xp[i] == NA_INTEGER) {
           continue;
         }
+
+        if (xp[i] > MAX_IDATE) {
+          error("`%s[%lld] = %d`, which is later than the latest supported date (2075-12-31).",
+                var, (long long)i + 1, xp[i]);
+        }
         char oi[11] = {0};
         char oj[11] = {0};
-        Rprintf("format_1_idate(oi, %d)\n", xp[i]);
         format_1_idate(oi, xp[i]);
-        Rprintf("fo");
-        Rprintf("rmat_1_idate(oj, %d)", max_date);
-        Rprintf("<-\n");
         format_1_idate(oj, max_date);
         error("`check >= 2` yet `%s[%lld] = %s`, which is later than the latest date in the series (%s). [ERR262]",
               var, (long long)i + 1, (const char *)oi, (const char *)oj);
