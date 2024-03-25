@@ -72,7 +72,7 @@ Inflate <- function(from, to,
   if (check < 2L) {
     if (from_beyond || to_beyond) {
       if (check == 1L) {
-        warning("`from` or `to` had dates beyond the last date in the series (", as.character(maxDate), "), so projected values will be used.")
+        signalCondition(simpleWarning(paste0("`from` or `to` had dates beyond the last date in the series (", as.character(maxDate), "), so projected values will be used.")))
       } else {
         message("`from` or `to` had dates beyond the last date in the series (", as.character(maxDate), "), so projected values will be used.")
       }

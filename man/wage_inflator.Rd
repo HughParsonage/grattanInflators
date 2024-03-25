@@ -12,6 +12,7 @@ wage_inflator(
   to = NULL,
   check = 1L,
   series = wpi_original(),
+  fy_month = 3L,
   x = NULL,
   nThread = getOption("grattanInflators.nThread", 1L)
 )
@@ -32,6 +33,8 @@ an error is performed for bad input; \code{check = 2L} is more thorough.}
 
 \item{series}{A call to `wpi_original()`, `wpi_seasonal()`, or `wpi_trend()`,
 defining which wage price index series to use.}
+
+\item{fy_month}{The month to be used in `series` for financial years.}
 
 \item{x}{(Advanced) A vector that will be inflated in-place. If \code{NULL},
 the default, the return vector is simply the inflation factor for `from`.}

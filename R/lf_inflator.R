@@ -9,6 +9,8 @@
 #' clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
 #' an error is performed for bad input; \code{check = 2L} is more thorough.
 #' @param series A call to `lfi_original()`, `lfi_seasonal()`, or `lfi_trend()`.
+#' @param fy_month The month to be used in `series` for financial years.
+#'
 #' @param ... Set of date-rate pairs for custom labour force series in the future.
 #' @param FORECAST Whether the series should be extended via an ETS forecast.
 #' @param LEVEL If `FORECAST = TRUE` what prediction interval should be used.
@@ -37,12 +39,28 @@
 lf_inflator <- function(from = NULL, to = NULL,
                         check = 1L,
                         series = lfi_original(),
+                        fy_month = 3L,
                         x = NULL,
                         nThread = getOption("grattanInflators.nThread", 1L)) {
-  Inflate(from, to, index = series,
-          check = check,
-          x = x,
-          nThread = nThread)
+  sys_call <- deparse(sys.call())
+  ans <- NULL
+  withCallingHandlers({
+    ans <-
+      Inflate(from, to, series,
+              fy_month = fy_month, x = x,
+              check = check,
+              nThread = nThread)
+  },
+  error = function(e) {
+    stop(sys_call, ": ", e$message, call. = FALSE)
+  },
+  warning = function(e) {
+    warning(sys_call, ": ", e$message, call. = FALSE)
+  },
+  message = function(e) {
+    message(sys_call, ": ", e$message)
+  })
+  ans
 }
 
 lfi2series_id <- function(adjustment) {

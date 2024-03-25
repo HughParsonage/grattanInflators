@@ -65,10 +65,25 @@ cpi_inflator <- function(from = NULL, to = NULL,
     Index <- copy(series)
   }
 
-
-  Inflate(from, to, Index, fy_month = fy_month, x = x,
-          check = check,
-          nThread = nThread)
+  sys_call <- deparse(sys.call())
+  ans <- NULL
+  withCallingHandlers({
+    ans <-
+      Inflate(from, to, Index,
+              fy_month = fy_month, x = x,
+              check = check,
+              nThread = nThread)
+  },
+  error = function(e) {
+    stop(sys_call, ": ", e$message, call. = FALSE)
+  },
+  warning = function(e) {
+    warning(sys_call, ": ", e$message, call. = FALSE)
+  },
+  message = function(e) {
+    message(sys_call, ": ", e$message)
+  })
+  ans
 }
 
 cpi2series_id <- function(series, use_monthly) {
