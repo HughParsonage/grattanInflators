@@ -317,7 +317,7 @@ void check_intsxp(bool * any_beyond,
 SEXP C_check_input(SEXP x, SEXP Var, SEXP Check, SEXP Class, SEXP minDate, SEXP maxDate, SEXP nthreads, SEXP Fymonth) {
   const int check = asInteger(Check);
   if (!check) {
-    return x;
+    return ScalarLogical(0);
   }
 
   const int fy_month = asInteger(Fymonth);
@@ -328,7 +328,7 @@ SEXP C_check_input(SEXP x, SEXP Var, SEXP Check, SEXP Class, SEXP minDate, SEXP 
   const int min_date = asInteger(minDate);
   const int max_date = asInteger(maxDate);
   if (min_date < MIN_IDATE || min_date > MAX_IDATE || max_date < MIN_IDATE || max_date > MAX_IDATE) {
-    error("(Internal error C_check_input 320): min_date, max_date out-of-range."); // # nocov
+    error("(Internal error C_check_input 331): min_date, max_date out-of-range."); // # nocov
   }
   bool any_beyond = false;
 
