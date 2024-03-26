@@ -181,6 +181,10 @@ uint16_t year2(int x, unsigned int lwr, unsigned int upr) {
   return p / 12;
 }
 
+uint16_t year(int x) {
+  return year2(x, 0, 1535) + MIN_YEAR;
+}
+
 SEXP C_Year(SEXP IDates, SEXP nthreads) {
   if (!isInteger(IDates)) {
     return R_NilValue;
@@ -295,6 +299,27 @@ SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP nthreads) {
   return ans;
 }
 
+void format_1_idate(char oi[11], int x) {
+  unsigned int p = p_search(x);
+  int yr = p / 12 + MIN_YEAR;
+  int mo = (p % 12) + 1;
+
+  // this should be the number of days between the array index identified and x
+  int d = x - ARR[p] + 1;
+
+  const char * digits = "0123456789";
+  oi[0] = (yr >= 2000) ? '2' : '1';
+  oi[1] = (yr >= 2000) ? '0' : '9';
+  oi[2] = digits[(yr / 10) % 10];
+  oi[3] = digits[(yr % 10)];
+  oi[4] = '-';
+  oi[5] = mo >= 10 ? '1' : '0';
+  oi[6] = digits[mo % 10];
+  oi[7] = '-';
+  oi[8] = digits[d / 10];
+  oi[9] = digits[d % 10];
+}
+
 SEXP C_format_idate(SEXP x) {
   if (!isInteger(x)) {
     error("C_format_idate accepts integer only, was a '%s'", type2char(TYPEOF(x))); // # nocov
@@ -309,24 +334,8 @@ SEXP C_format_idate(SEXP x) {
       ansp[i] = NA_STRING;
       continue;
     }
-    unsigned int p = p_search(xp[i]);
-    int yr = p / 12 + MIN_YEAR;
-    int mo = (p % 12) + 1;
-
-    int d = xpi - ARR[p] + 1;
-
-    const char * digits = "0123456789";
     char oi[11] = {0};
-    oi[0] = (yr >= 2000) ? '2' : '1';
-    oi[1] = (yr >= 2000) ? '0' : '9';
-    oi[2] = digits[(yr / 10) % 10];
-    oi[3] = digits[(yr % 10)];
-    oi[4] = '-';
-    oi[5] = mo >= 10 ? '1' : '0';
-    oi[6] = digits[mo % 10];
-    oi[7] = '-';
-    oi[8] = digits[d / 10];
-    oi[9] = digits[d % 10];
+    format_1_idate(oi, xp[i]);
     ansp[i] = mkCharCE((const char *)oi, CE_UTF8);
   }
   UNPROTECT(1);

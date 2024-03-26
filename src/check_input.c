@@ -66,7 +66,7 @@ unsigned char invalid_mday(const char * x, int yr, int month) {
   return 0;
 }
 
-static unsigned char err_string(const char * x, int n, int check) {
+static unsigned char err_string(YearMonth * YM, const char * x, int n, int check, const int fy_month) {
   if (!starts_with_yyyy(x)) {
     return ERR_CHAR_NOT_YYYY;
   }
@@ -74,6 +74,7 @@ static unsigned char err_string(const char * x, int n, int check) {
   if (yr < 0 || yr > 127) {
     return ERR_CHAR_YR_RANGE;
   }
+  YM->year = yr;
   if (n == 10) {
     int month = string2month(x);
     if (month == 15) {
@@ -82,10 +83,17 @@ static unsigned char err_string(const char * x, int n, int check) {
     if (check >= 2 && invalid_mday(x, yr + 1948, month)) {
       return ERR_CHAR_BAD_MDAY;
     }
-
+    YM->month = month;
   }
   if (n == 7) {
-    if (is_valid_fy_quartet(x) || is_valid_YYYYQQ(x)) {
+    if (is_valid_fy_quartet(x)) {
+      YM->month = fy_month;
+      YM->year++;
+      return 0;
+    }
+
+    if (is_valid_YYYYQQ(x)) {
+      YM->month = 3 * (x[6] - '0');
       return 0;
     }
     if (x[5] == 'Q' || x[5] == 'q') {
@@ -99,14 +107,22 @@ static unsigned char err_string(const char * x, int n, int check) {
 }
 
 
+// Function to pack a YearMonth into an unsigned int
+unsigned int packYearMonth(YearMonth ym) {
+  return (ym.year << 4) | ym.month;
+}
 
 
 
-
-static void check_valid_strings(const SEXP * xp, R_xlen_t N, int check, int nThread, const char * var) {
+static void check_valid_strings(unsigned int xpackminmax[2],
+                                const SEXP * xp, R_xlen_t N, int check, int nThread, const char * var,
+                                const int fy_month,
+                                const int min_date) {
   unsigned char o = 0;
+  unsigned int pack_min = 2044; // maximum packYearMonth value
+  unsigned int pack_max = 0;
 #if defined _OPENMP && _OPENMP >= 201511
-#pragma omp parallel for num_threads(nThread) schedule(static) reduction(| : o)
+#pragma omp parallel for num_threads(nThread) schedule(static) reduction(| : o) reduction(min : pack_min) reduction(max : pack_max)
 #endif
   for (R_xlen_t i = 0; i < N; ++i) {
     if (xp[i] == NA_STRING) {
@@ -114,16 +130,43 @@ static void check_valid_strings(const SEXP * xp, R_xlen_t N, int check, int nThr
     }
     int n = length(xp[i]);
     const char * xi = CHAR(xp[i]);
-    o |= err_string(xi, n, check);
+    YearMonth YM;
+    YM.year = 0;
+    YM.month = 15;
+    o |= err_string(&YM, xi, n, check, fy_month);
+    if (o == 0 && YM.month <= 12) {
+      unsigned int packedYM = packYearMonth(YM);
+      if (packedYM >= pack_min && packedYM <= pack_max) {
+        continue;
+      }
+      if (packedYM < pack_min) {
+        pack_min = packedYM;
+      }
+      if (packedYM > pack_max) {
+        pack_max = packedYM;
+      }
+    }
   }
-  if (o != 0) {
+
+  xpackminmax[0] = pack_min;
+  xpackminmax[1] = pack_max;
+  const unsigned int pack_min_date = packYearMonth(idate2YearMonth(min_date));
+  if (o != 0 || pack_min < pack_min_date) {
     for (R_xlen_t i = 0; i < N; ++i) {
       if (xp[i] == NA_STRING) {
         continue;
       }
       const char * xi = CHAR(xp[i]);
       int nxi = length(xp[i]);
-      int ei = err_string(xi, nxi, check);
+      YearMonth YM;
+      YM.year = 0;
+      YM.month = 15;
+      int ei = err_string(&YM, xi, nxi, check, fy_month);
+      if (!ei && packYearMonth(YM) < pack_min_date) {
+        YearMonth YM_min = idate2YearMonth(min_date);
+        error("`%s[%lld] = %s`, which is earlier than the earliest date in the series (%d-%d-01)",
+              var, (long long)i + 1, xi, YM_min.year + MIN_YEAR, YM_min.month);
+      }
       switch(ei) {
       case 0:
         continue;
@@ -152,34 +195,151 @@ static void check_valid_strings(const SEXP * xp, R_xlen_t N, int check, int nThr
   }
 }
 
-void check_strsxp(const SEXP * xp, R_xlen_t N, int check, const char * var,
-                  int nThread) {
-  check_valid_strings(xp, N, check, nThread, var);
+void check_strsxp(bool * any_beyond,
+                  const SEXP * xp, R_xlen_t N, int check, const char * var,
+                  const int fy_month,
+                  int nThread,
+                  const int min_date,
+                  const int max_date) {
+  unsigned int xpackminmax[2];
+  check_valid_strings(xpackminmax, xp, N, check, nThread, var, fy_month, min_date);
+  YearMonth YM_max_date = idate2YearMonth(max_date);
+  unsigned int packed_max_date = packYearMonth(YM_max_date);
+  if (xpackminmax[1] > packed_max_date) {
+    if (check >= 2) {
+      // need error on excessive date, not just a signal
+      for (R_xlen_t i = 0; i < N; ++i) {
+        if (xp[i] == NA_STRING) {
+          continue;
+        }
+        const char * xpi = CHAR(xp[i]);
+        YearMonth YM_i;
+        err_string(&YM_i, xpi, length(xp[i]), check, fy_month);
+        unsigned int packed_i = packYearMonth(YM_i);
+        if (packed_i > packed_max_date) {
+          error("`%s[%lld] = %s` which is later than the latest allowable date (%d-%02d-01)",
+                var, (long long)i + 1, xpi, YM_max_date.year + MIN_YEAR, YM_max_date.month);
+        }
+      }
+    }
+    *any_beyond = true;
+  }
+}
+
+void check_intsxp(bool * any_beyond,
+                  const int * xp, R_xlen_t N, int check, const char * var,
+                  bool was_date,
+                  int nThread,
+                  const int min_date,
+                  const int max_date) {
+  int xminmax[2];
+  iminmax(xminmax, xp, N, 3, nThread);
+
+  if (was_date) {
+    if (min_date > xminmax[0] || xminmax[0] < MIN_IDATE) {
+      for (R_xlen_t i = 0; i < N; ++i) {
+        if (xp[i] >= min_date || xp[i] == NA_INTEGER) {
+          continue;
+        }
+        // Need to error for minimum supported dates since format_1_idate
+        // relies on xp[i] being in the correct range
+        if (xp[i] < MIN_IDATE) {
+          error("`%s[%lld] = %d`, which is earlier than the earliest supported date (1948-01-01).",
+                var, (long long)i + 1, xp[i]);
+        }
+        char oi[11] = {0};
+        char oj[11] = {0};
+        format_1_idate(oi, xp[i]);
+        format_1_idate(oj, min_date);
+        error("`%s[%lld] = %s`, which is earlier than the earliest date in the series (%s).",
+              var, (long long)i + 1, (const char *)oi, (const char *)oj);
+      }
+    }
+    *any_beyond = max_date < xminmax[1];
+    if ((check >= 2 || xminmax[1] > MAX_IDATE) && *any_beyond) {
+      for (R_xlen_t i = 0; i < N; ++i) {
+        if (xp[i] <= max_date || xp[i] == NA_INTEGER) {
+          continue;
+        }
+
+        if (xp[i] > MAX_IDATE) {
+          error("`%s[%lld] = %d`, which is later than the latest supported date (2075-12-31).",
+                var, (long long)i + 1, xp[i]);
+        }
+        char oi[11] = {0};
+        char oj[11] = {0};
+        format_1_idate(oi, xp[i]);
+        format_1_idate(oj, max_date);
+        error("`check >= 2` yet `%s[%lld] = %s`, which is later than the latest date in the series (%s). [ERR262]",
+              var, (long long)i + 1, (const char *)oi, (const char *)oj);
+      }
+    }
+
+
+  } else {
+    // was year
+    int yr_min_date = year(min_date);
+    int yr_max_date = year(max_date);
+    if (yr_min_date > xminmax[0]) {
+      for (R_xlen_t i = 0; i < N; ++i) {
+        if (yr_min_date <= xp[i] || xp[i] == NA_INTEGER) {
+          continue;
+        }
+        error("`%s[%lld] = %d`, which is earlier than the earliest date in the series (%d).",
+                var, (long long)i + 1, xp[i], yr_min_date);
+        break;
+      }
+    }
+
+    *any_beyond = yr_max_date < xminmax[1];
+    if ((check >= 2 && *any_beyond) || xminmax[1] > MAX_YEAR) {
+      for (R_xlen_t i = 0; i < N; ++i) {
+        if (xp[i] > MAX_YEAR) {
+          error("`%s[%lld] = %d`, which is later than the latest supported year (%d)",
+                var, (long long)i + 1, xp[i], MAX_YEAR);
+        }
+        if (xp[i] <= yr_max_date || xp[i] == NA_INTEGER) {
+          continue;
+        }
+        error("`check >= 2` yet `%s[%lld] = %d`, which is later than the latest year in the series (%d).",
+              var, (long long)i + 1, xp[i], yr_max_date);
+      }
+    }
+  }
 }
 
 
-SEXP C_check_input(SEXP x, SEXP Var, SEXP Check, SEXP Class, SEXP minDate, SEXP maxDate, SEXP nthreads) {
+
+// are the strings or inputs valid (i.e. cannot represent dates, and
+// should be brought to the user's attention)?
+// Is the series sufficient for the input? (Are the dates between the series?)
+//  -- if not need to signal extension
+SEXP C_check_input(SEXP x, SEXP Var, SEXP Check, SEXP Class, SEXP minDate, SEXP maxDate, SEXP nthreads, SEXP Fymonth) {
   const int check = asInteger(Check);
   if (!check) {
-    return x;
+    return ScalarLogical(0);
   }
+
+  const int fy_month = asInteger(Fymonth);
   const char * var = CHAR(STRING_ELT(Var, 0));
   int nThread = as_nThread(nthreads);
   int xclass = asInteger(Class);
   bool was_date = xclass == CLASS_Date || xclass == CLASS_IDate;
   const int min_date = asInteger(minDate);
   const int max_date = asInteger(maxDate);
-
+  if (min_date < MIN_IDATE || min_date > MAX_IDATE || max_date < MIN_IDATE || max_date > MAX_IDATE) {
+    error("(Internal error C_check_input 331): min_date, max_date out-of-range."); // # nocov
+  }
+  bool any_beyond = false;
 
   switch(TYPEOF(x)) {
   case STRSXP:
-    check_strsxp(STRING_PTR(x), xlength(x), check, var, nThread);
+    check_strsxp(&any_beyond, STRING_PTR(x), xlength(x), check, var, fy_month, nThread, min_date, max_date);
     break;
   case INTSXP:
-    break;
+    check_intsxp(&any_beyond, INTEGER(x), xlength(x), check, var, was_date, nThread, min_date, max_date);
   }
-  int xminmax[2] = {min_date, max_date};
-  err_if_anyOutsideDate(xminmax, x, nThread, var, was_date);
 
-  return x;
+
+  return ScalarLogical(any_beyond);
 }

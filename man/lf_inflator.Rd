@@ -12,6 +12,7 @@ lf_inflator(
   to = NULL,
   check = 1L,
   series = lfi_original(),
+  fy_month = 3L,
   x = NULL,
   nThread = getOption("grattanInflators.nThread", 1L)
 )
@@ -31,6 +32,8 @@ clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
 an error is performed for bad input; \code{check = 2L} is more thorough.}
 
 \item{series}{A call to `lfi_original()`, `lfi_seasonal()`, or `lfi_trend()`.}
+
+\item{fy_month}{The month to be used in `series` for financial years.}
 
 \item{x}{(Advanced) A vector that will be inflated in-place. If \code{NULL},
 the default, the return vector is simply the inflation factor for `from`.}

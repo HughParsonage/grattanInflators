@@ -23,7 +23,7 @@ zff <- 2040
 expect_error(ii(zff, 2020, index = Index), "zff")
 zff <- as.integer(zff)
 expect_error(ii(zff, 2020, index = Index), "zff")
-zfi <- c(NA, as.IDate("1999-01-01"))
+zfi <- c(as.IDate(NA), as.IDate("1999-01-01"))
 expect_error(ii(zfi, 2020, index = Index), "zfi")
 zfj <- as.IDate("2077-12-30")
 expect_error(ii(zfj, 2020, index = Index), "zfj")
@@ -56,7 +56,7 @@ expect_equal(ii(c1, as.IDate(NA), index = Index), rep(NA_real_, length(c1)))
 expect_equal(ii(c1, from = as.IDate(NA), index = Index), rep(NA_real_, length(c1)))
 
 expect_error(ii(z1, z2, index = data.table(date = as.IDate("1900-01-01"), value = 1)),
-             "minDate")
+             "date")
 
 # test NAs
 a <- c(NA, "2015-01-01", "2021-01-01")
@@ -65,4 +65,6 @@ expect_error(ii(a, z2[1:3], index = Index), "latest allowable")
 # prohibit vector recycling
 expect_error(ii(z2, z1[-1], index = Index), "length")
 
+# index outside range
+expect_error(ii(z2, z2, index = data.table(date = as.IDate("1947-01-01"), value = 1)))
 

@@ -90,6 +90,7 @@ int string2month(const char * x);
 // check_input
 
 // YearMonth
+YearMonth YM_NA(void);
 YearMonth idate2YearMonth(int x);
 uint16_t year(int x) ;
 unsigned int p_search(int x);
@@ -100,8 +101,13 @@ int yqi(YearMonth YM);
 // errif.c
 void prohibit_vector_recyling(SEXP x, SEXP y, const char * wx, const char * wy);
 
+// fast_as_idate.c
+void format_1_idate(char oi[11], int x);
+
+
 // minmaxDate.c
-void err_if_anyOutsideDate(int minmax[2], SEXP x, int nThread, const char * var, bool was_date);
+void err_if_anyOutsideDate(int minmax[2], SEXP x, int nThread, const char * var, bool was_date, int fy_month);
+void iminmax(int xminmax[2], const int * xp, R_xlen_t N, const int fy_month, int nThread);
 
 // omp-diagnose.c
 int as_nThread(SEXP x);

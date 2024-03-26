@@ -23,36 +23,6 @@ static bool leqcc1(const char * x, char y[8], bool equal_ok) {
   return equal_ok;
 }
 
-static bool leqfy(const char *x, const char *y, int fy_month) {
-  // x is an fy string, e.g., "2020-21"
-  // y is a yyyy-mm string, e.g., "2021-03"
-
-  // Step 1: Parse the fiscal year string to get the end year
-  char fy_end_str[5]; // To store the end year part of the fiscal year string
-  strncpy(fy_end_str, x + 5, 2); // Copy the last two digits
-  fy_end_str[2] = '\0'; // Null-terminate the string
-  int fy_end_prefix = (*x - '0') * 1000 + (*(x + 1) - '0') * 100;
-  int fy_end = fy_end_prefix + atoi(fy_end_str);
-
-  // Step 2: Parse the yyyy-mm string
-  char year_str[5], month_str[3];
-  strncpy(year_str, y, 4);
-  year_str[4] = '\0';
-  strncpy(month_str, y + 5, 2);
-  month_str[2] = '\0';
-  int year = atoi(year_str);
-  int month = atoi(month_str);
-
-  // Step 3: Compare
-  if (fy_end < year) {
-    return true; // The fiscal year ends before the year of the date
-  } else if (fy_end == year) {
-    if (fy_month <= month) {
-      return true; // The fiscal year ends on the same year and before or in the same month
-    }
-  }
-  return false; // The fiscal year ends after the date
-}
 
 static void minDate(char yyyy_mm[8], const SEXP * xp, R_xlen_t N) {
   for (R_xlen_t i = 0; i < N; ++i) {
@@ -82,179 +52,6 @@ static void minDate(char yyyy_mm[8], const SEXP * xp, R_xlen_t N) {
   }
 }
 
-void idate2char8(char yyyy_mm[8], int x) {
-  if (x < MIN_IDATE) {
-    strcpy(yyyy_mm, "1948-01");
-    return;
-  }
-  if (x > MAX_IDATE) {
-    strcpy(yyyy_mm, "2075-12");
-    return;
-  }
-  YearMonth xYM = idate2YearMonth(x);
-  int yr = xYM.year + MIN_YEAR;
-  int mo = xYM.month;
-  const char * digits = "0123456789";
-  yyyy_mm[0] = yr < 2000 ? '1' : '2';
-  yyyy_mm[1] = digits[(yr / 100) % 10];
-  yyyy_mm[2] = digits[(yr / 10) % 10];
-  yyyy_mm[3] = digits[yr % 10];
-  yyyy_mm[4] = '-';
-  yyyy_mm[5] = mo >= 10 ? '1' : '0';
-  yyyy_mm[6] = digits[(mo % 10)];
-}
-
-static bool ibetween(int xminmax[2], const int * xp, R_xlen_t N, int nThread) {
-  int xmin = xminmax[0];
-  int xmax = xminmax[1];
-
-  bool o = true;
-#if defined _OPENMP && _OPENMP >= 201511
-#pragma omp parallel for num_threads(nThread) reduction(&& : o)
-#endif
-  for (R_xlen_t i = 0; i < N; ++i) {
-    int xpi = xp[i];
-    if (xpi >= xmin && xpi <= xmax) {
-      continue;
-    }
-    o = false;
-  }
-  return o;
-}
-
-static void ierr_if_outside(int xminmax[2], const int * xp, R_xlen_t N, int nThread, const char * var,
-                            bool was_date) {
-  if (!was_date) {
-    xminmax[0] = idate2YearMonth(xminmax[0]).year + 1948;
-    xminmax[1] = idate2YearMonth(xminmax[1]).year + 1948;
-  }
-  if (!ibetween(xminmax, xp, N, nThread)) {
-    for (R_xlen_t i = 0; i < N; ++i) {
-      if (xp[i] == NA_INTEGER) {
-        continue;
-      }
-      if (xp[i] < xminmax[0]) {
-        if (was_date) {
-          char yyyy_mm_min[8] = {0};
-          char yyyy_mm_xpi[8] = {0};
-          idate2char8(yyyy_mm_min, xminmax[0]);
-          idate2char8(yyyy_mm_xpi, xp[i]);
-          error("`%s[%lld] = %s` which is prior to the earliest allowable date: %s",
-                var, (long long)i + 1, yyyy_mm_xpi, yyyy_mm_min);
-        } else {
-          error("`%s[%lld] = %d` (int) which is prior to the earliest allowable date: %d.",
-                var, (long long)i + 1, xp[i], xminmax[0]);
-        }
-      }
-      if (xp[i] > xminmax[1]) {
-        if (was_date) {
-          char yyyy_mm_max[8] = {0};
-          char yyyy_mm_xpi[8] = {0};
-          idate2char8(yyyy_mm_max, xminmax[1]);
-          idate2char8(yyyy_mm_xpi, xp[i]);
-          error("`%s[%lld] = %s` which is after the latest allowable date: %s",
-                var, (long long)i + 1, yyyy_mm_xpi, yyyy_mm_max);
-        } else {
-          error("`%s[%lld] = %d` (int) which is after the latest allowable date: %d.",
-                var, (long long)i + 1, xp[i], xminmax[1]);
-        }
-      }
-    }
-  }
-}
-
-
-
-
-static void serr_if_outside(int xminmax[2], const SEXP * xp, R_xlen_t N, int nThread, const char * var,
-                            bool was_date) {
-  char yyyy_mm_min[8] = {0};
-  char yyyy_mm_max[8] = {0};
-  idate2char8(yyyy_mm_min, xminmax[0]);
-  idate2char8(yyyy_mm_max, xminmax[1]);
-  bool o = false;
-#if defined _OPENMP && _OPENMP >= 201511
-#pragma omp parallel for num_threads(nThread) reduction(|| : o)
-#endif
-  for (R_xlen_t i = 0; i < N; ++i) {
-    if (o || xp[i] == NA_STRING || length(xp[i]) < 7) {
-      continue;
-    }
-    const char * xi = CHAR(xp[i]);
-    if (leqcc1(xi, yyyy_mm_min, false) || !leqcc1(xi, yyyy_mm_max, false)) {
-      o = true;
-    }
-  }
-  if (o) {
-    for (R_xlen_t i = 0; i < N; ++i) {
-      if (xp[i] == NA_STRING || length(xp[i]) < 7) {
-        continue;
-      }
-      const char * xi = CHAR(xp[i]);
-      if (leqcc1(xi, yyyy_mm_min, false)) {
-        error("`%s[%lld] = %s` which is prior to the earliest allowable date: %s.",
-              var, (long long)i + 1, xi, (const char *)yyyy_mm_min);
-      }
-      if (!leqcc1(xi, yyyy_mm_max, false)) {
-        error("`%s[%lld] = %s` which is after the latest allowable date: %s.",
-              var, (long long)i + 1, xi, (const char *)yyyy_mm_max);
-      }
-    }
-  }
-}
-
-void err_if_anyOutsideDate(int minmax[2], SEXP x, int nThread, const char * var, bool was_date) {
-  switch(TYPEOF(x)) {
-  case INTSXP:
-    ierr_if_outside(minmax, INTEGER(x), xlength(x), nThread, var, was_date);
-    break;
-    // # nocov start
-  case REALSXP:
-    error("Internal error: REALSXP not permitted.");
-    break;
-    // # nocov end
-  case STRSXP:
-    serr_if_outside(minmax, STRING_PTR(x), xlength(x), nThread, var, was_date);
-    break;
-  }
-}
-
-static bool ianyBeyond(int max_date, const int * xp, R_xlen_t N, int nThread) {
-  bool o = false;
-#if defined _OPENMP && _OPENMP >= 201511
-#pragma omp parallel for num_threads(nThread) reduction(|| : o)
-#endif
-  for (R_xlen_t i = 0; i < N; ++i) {
-    if (xp[i] > max_date) {
-      o = true;
-    }
-  }
-  return o;
-}
-
-static bool sanyBeyond(int max_date, const SEXP * xp, R_xlen_t N, int fy_month, int nThread) {
-  char yyyy_mm_max[8] = {0};
-  idate2char8(yyyy_mm_max, max_date);
-  bool o = false;
-#if defined _OPENMP && _OPENMP >= 201511
-#pragma omp parallel for num_threads(nThread) reduction(|| : o)
-#endif
-  for (R_xlen_t i = 0; i < N; ++i) {
-    if (o || xp[i] == NA_STRING || length(xp[i]) < 7) {
-      continue;
-    }
-    const char * xi = CHAR(xp[i]);
-    if (length(xp[i]) == 7) {
-      // fy month, possibly the year earlier in the first four chars
-      if (!leqfy(xi, yyyy_mm_max, fy_month)) {
-        o = true;
-      }
-    } else if (!leqcc1(xi, yyyy_mm_max, false)) {
-      o = true;
-    }
-  }
-  return o;
-}
 
 SEXP C_minDate(SEXP x) {
   R_xlen_t N = xlength(x);
@@ -262,21 +59,6 @@ SEXP C_minDate(SEXP x) {
   char yyyy_mm[8] = {'2', '9', '9', '9', '-', '1', '9', '\0'};
   minDate(yyyy_mm, xp, N);
   return ScalarString(mkCharCE(yyyy_mm, CE_UTF8));
-}
-
-SEXP C_anyBeyond(SEXP x, SEXP maxDate, SEXP Fymonth, SEXP nthreads) {
-  const int max_date = asInteger(maxDate);
-  const int fy_month = asInteger(Fymonth);
-  int nThread = as_nThread(nthreads);
-  R_xlen_t N = xlength(x);
-  switch(TYPEOF(x)) {
-  case STRSXP:
-   return ScalarLogical(sanyBeyond(max_date, STRING_PTR(x), N, fy_month, nThread));
-  case INTSXP:
-    return ScalarLogical(ianyBeyond(max_date, INTEGER(x), N, nThread));
-  default:
-    error("Internal error: wrong TYPEOF in C_anyBeyond.");
-  }
 }
 
 SEXP C_all_dates(SEXP x) {
@@ -289,4 +71,34 @@ SEXP C_all_dates(SEXP x) {
   UNPROTECT(1);
   return ans;
 }
+
+void iminmax(int xminmax[2], const int * xp, R_xlen_t N, const int fy_month, int nThread) {
+  int xmin = xp[0];
+  int xmax = xp[0];
+  if (xmin == NA_INTEGER) {
+    xmin = INT_MAX;
+    // xmax will be INT_MIN naturally; also can signal a totally constant xp
+  }
+#if defined _OPENMP && _OPENMP >= 201511
+#pragma omp parallel for num_threads(nThread) reduction(min : xmin) reduction(max : xmax)
+#endif
+  for (R_xlen_t i = 1; i < N; ++i) {
+    int xpi = xp[i];
+    if (xpi == NA_INTEGER) {
+      continue;
+    }
+    if (xpi >= xmin && xpi <= xmax) {
+      continue;
+    }
+    if (xpi < xmin) {
+      xmin = xpi;
+    } else {
+      xmax = xpi;
+    }
+  }
+  xminmax[0] = xmin;
+  xminmax[1] = xmax;
+}
+
+
 

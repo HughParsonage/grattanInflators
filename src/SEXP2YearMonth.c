@@ -1,6 +1,6 @@
 #include "grattanInflator.h"
 
-static YearMonth YM_NA(void) {
+YearMonth YM_NA(void) {
   YearMonth O;
   O.year = 0;
   O.month = 15;
@@ -60,7 +60,7 @@ int string2month(const char * x) {
 }
 
 static void string2YearMonth(YearMonth * ans,
-                             const char * x, int n) {
+                             const char * x, int n, int fy_month) {
   ans->year = string2year(x);
   ans->month = 3;
   switch(n) {
@@ -70,7 +70,8 @@ static void string2YearMonth(YearMonth * ans,
   case 7:
     if (isdigit(x[5])) {
       // is fy
-      ans->year++;
+      ans->year += (fy_month < 7);
+      ans->month = fy_month;
     } else {
       switch(x[6]) {
       case '1':
@@ -146,7 +147,7 @@ void SEXP2YearMonth(YearMonth * ansp,
       continue;
     }
     YearMonth O;
-    string2YearMonth(&O, CHAR(xp[i]), length(xp[i]));
+    string2YearMonth(&O, CHAR(xp[i]), length(xp[i]), fy_month);
     ansp[i] = O;
   })
 }

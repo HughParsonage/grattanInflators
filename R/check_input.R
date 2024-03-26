@@ -1,11 +1,10 @@
 
 
-.check_input <- function(x, minDate, maxDate, check = 1L, nThread = 1L, var = NULL) {
+.check_input <- function(x, minDate, maxDate, check = 1L, nThread = 1L, fy_month = 3L, var = NULL, xclass) {
   if (is.null(var)) {
     var <- deparse1(eval.parent(substitute(substitute(x))))
   }
-  x <- ensure_date(x)
-  .Call("C_check_input", x, var, check, supported_classes(class(x)), minDate, maxDate, nThread, PACKAGE = packageName())
+  .Call("C_check_input", x, var, check, xclass, minDate, maxDate, nThread, fy_month, PACKAGE = packageName())
 }
 
 varname <- function(x, vx, n = 1) {

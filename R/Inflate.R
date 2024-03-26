@@ -36,28 +36,43 @@ Inflate <- function(from, to,
                     check = 2L,
                     nThread = getOption("grattanInflators.nThread", 1L)) {
   if (is.null(from)) {
-    from <- as.IDate(Sys.Date() - 365L - 180L)
+    from <- as.IDate(Sys.Date() - 365L - 180L) # nocov
   }
   if (is.null(to)) {
-    to <- as.IDate(Sys.Date() - 180L)
+    to <- as.IDate(Sys.Date() - 180L) # nocov
   }
 
   from_vname <- varname(from, "from")
   to_vname <- varname(to, "to")
 
   prohibit_vector_recycling(from, to)
+  from_class <- supported_classes(class(from))
+  to_class <- supported_classes(class(to))
   from <- ensure_date(from)
   to <- ensure_date(to)
 
   index_dates <- as.IDate(.subset2(index, "date"))
   minDate <- index_dates[1L]
   maxDate <- index_dates[length(index_dates)]
+  if (is.na(minDate) || !inherits(minDate, "IDate") || minDate < "1948-01-01" || minDate > "2075-12-31") {
+    stop("index[1] = ", as.character(minDate), " but the only supported dates are between 1948 and 2075")
+  }
+  if (is.na(maxDate) || !inherits(maxDate, "IDate") || maxDate < "1948-01-01" || maxDate > "2075-12-31") {
+    stop("index[1] = ", as.character(maxDate), " but the only supported dates are between 1948 and 2075")
+  }
+
+  from_beyond <- .check_input(from,
+                              minDate = minDate, maxDate = maxDate,
+                              check = check, nThread = nThread, fy_month = fy_month, var = from_vname,
+                              xclass = from_class)
+  to_beyond <- .check_input(to,
+                            minDate = minDate, maxDate = maxDate,
+                            check = check, nThread = nThread, fy_month = fy_month, var = to_vname,
+                            xclass = to_class)
   if (check < 2L) {
-    from_beyond <- .Call("C_anyBeyond", from, maxDate, fy_month, nThread, PACKAGE = packageName())
-    to_beyond <- .Call("C_anyBeyond", to, maxDate, fy_month, nThread, PACKAGE = packageName())
     if (from_beyond || to_beyond) {
       if (check == 1L) {
-        warning("`from` or `to` had dates beyond the last date in the series (", as.character(maxDate), "), so projected values will be used.")
+        signalCondition(simpleWarning(paste0("`from` or `to` had dates beyond the last date in the series (", as.character(maxDate), "), so projected values will be used.")))
       } else {
         message("`from` or `to` had dates beyond the last date in the series (", as.character(maxDate), "), so projected values will be used.")
       }
@@ -70,21 +85,13 @@ Inflate <- function(from, to,
   class_from <- supported_classes(class(from))
   class_to <-   supported_classes(class(to))
 
-  if (is.na(minDate) || !inherits(minDate, "Date") || minDate < "1948-01-01") {
-    stop("`minDate = ", minDate, "` but must be a date no earlier than 1948-01-01")
-  }
   if (is.double(x) && length(from) == 1L && length(to) == 1L) {
     r <- Inflate(from, to, index, fy_month = fy_month, check = check, nThread = 1L)
     .Call("C_multiply", x, r, nThread, PACKAGE = packageName())
     return(x)
   }
 
-  from <- .check_input(from,
-                       minDate = minDate, maxDate = maxDate,
-                       check = check, nThread = nThread, var = from_vname)
-  to <- .check_input(to,
-                     minDate = minDate, maxDate = maxDate,
-                     check = check, nThread = nThread, var = to_vname)
+
 
   if (inherits(from, "IDate") && inherits(to, "IDate") && length(from) >= length(to)) {
     if (is.null(x)) {
@@ -112,7 +119,7 @@ Inflate <- function(from, to,
 
 
 }
-
+# nocov start
 .prolong_Index <- function(index, until) {
   stopifnot(inherits(until, "IDate"))
   index_dates <- .subset2(index, "date")
@@ -141,7 +148,7 @@ Inflate <- function(from, to,
   }
 
 }
-
+# nocov end
 .prolong_ets <- function(index, level = "mean") {
   if (!requireNamespace("fable", quietly = TRUE)) {
     message(".prolong_ets requires the fable package, so using simple average rate.")

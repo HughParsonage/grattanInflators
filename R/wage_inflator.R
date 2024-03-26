@@ -9,7 +9,7 @@
 #'
 #' @param series A call to `wpi_original()`, `wpi_seasonal()`, or `wpi_trend()`,
 #' defining which wage price index series to use.
-#'
+#' @param fy_month The month to be used in `series` for financial years.
 #' @param ... Set of date-rate pairs for custom WPI series in the future.
 #' @param FORECAST Whether the series should be extended via an ETS forecast.
 #' @param LEVEL If `FORECAST = TRUE` what prediction interval should be used.
@@ -34,12 +34,28 @@
 wage_inflator <- function(from = NULL, to = NULL,
                           check = 1L,
                           series = wpi_original(),
+                          fy_month = 3L,
                           x = NULL,
                           nThread = getOption("grattanInflators.nThread", 1L)) {
-  Inflate(from, to, index = series,
-          check = check,
-          x = x,
-          nThread = nThread)
+  sys_call <- deparse(sys.call())
+  ans <- NULL
+  withCallingHandlers({
+    ans <-
+      Inflate(from, to, series,
+              fy_month = fy_month, x = x,
+              check = check,
+              nThread = nThread)
+  },
+  error = function(e) {
+    stop(sys_call, ": ", e$message, call. = FALSE)
+  },
+  warning = function(e) {
+    warning(sys_call, ": ", e$message, call. = FALSE)
+  },
+  message = function(e) {
+    message(sys_call, ": ", e$message)
+  })
+  ans
 }
 
 wpi2series_id <- function(adjustment) {

@@ -2,6 +2,10 @@ library(tinytest)
 library(grattanInflators)
 library(data.table)
 
+if (at_home()) {
+  # test defaults
+expect_true(is.double(cpi_inflator()))
+}
 
 expect_equal(round(cpi_inflator("2015-16", "2016-17"), 3), 1.021, tolerance = 0.001, scale = 1)
 expect_equal(round(cpi_inflator("2015-16", "2014-15"), 3), 0.987, tolerance = 0.001, scale = 1)
@@ -69,7 +73,7 @@ expect_equal(cpi_inflator(c("2015-16", "2015-16"), NA_character_), c(NaN, NaN))
 expect_equal(cpi_inflator(c("2015-16", "2015-16"), from = NA_character_), c(NaN, NaN))
 
 flp <- c("2000-02-29", "2004-02-29", "1984-02-29", "1983-02-29")
-expect_error(cpi_inflator(flp, "2000-01-01", check = 2L), "f(lp|rom).4.")
+expect_error(cpi_inflator(flp, "2000-01-01", check = 2L, series = "trimmed.mean"), "f(lp|rom).4.")
 
 # invalid mday
 fmmdd <- c("2000-02-29", "2000-11-31")
