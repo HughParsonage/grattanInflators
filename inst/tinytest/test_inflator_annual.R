@@ -65,4 +65,6 @@ expect_error(ii(a, z2[1:3], index = Index), "latest allowable")
 # prohibit vector recycling
 expect_error(ii(z2, z1[-1], index = Index), "length")
 
+# index outside range
+expect_error(ii(z2, z2, index = data.table(date = as.IDate("1947-01-01"), value = 1)))
 
