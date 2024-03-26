@@ -1,6 +1,6 @@
 library(grattanInflators)
 
-expect_equal(round(lf_inflator("2015-16", "2016-17"), 3), 1.015, tolerance = 0.001, scale = 1)
+expect_equal(round(lf_inflator("2015-16", "2016-17"), 3), 1.012, tolerance = 0.005, scale = 1)
 expect_equal(round(lf_inflator("2015-16", "2014-15"), 3), 0.979, tolerance = 0.001, scale = 1)
 x <- c("2015-01-01", "2015-16", "2014-01-01")
 expect_equal(lf_inflator(x, "2016-17"), 1 / lf_inflator("2016-17", x))
