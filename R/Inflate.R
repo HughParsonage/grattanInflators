@@ -36,10 +36,10 @@ Inflate <- function(from, to,
                     check = 2L,
                     nThread = getOption("grattanInflators.nThread", 1L)) {
   if (is.null(from)) {
-    from <- as.IDate(Sys.Date() - 365L - 180L)
+    from <- as.IDate(Sys.Date() - 365L - 180L) # nocov
   }
   if (is.null(to)) {
-    to <- as.IDate(Sys.Date() - 180L)
+    to <- as.IDate(Sys.Date() - 180L) # nocov
   }
 
   from_vname <- varname(from, "from")
@@ -119,7 +119,7 @@ Inflate <- function(from, to,
 
 
 }
-
+# nocov start
 .prolong_Index <- function(index, until) {
   stopifnot(inherits(until, "IDate"))
   index_dates <- .subset2(index, "date")
@@ -148,7 +148,7 @@ Inflate <- function(from, to,
   }
 
 }
-
+# nocov end
 .prolong_ets <- function(index, level = "mean") {
   if (!requireNamespace("fable", quietly = TRUE)) {
     message(".prolong_ets requires the fable package, so using simple average rate.")
