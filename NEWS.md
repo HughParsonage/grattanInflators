@@ -1,3 +1,9 @@
+## grattanInflators 0.5.2
+
+### Internal
+
+* Fixed a test failing on CRAN due to fall-back to narrower date series
+
 ## grattanInflators 0.5.1
 
 ### Bug fixes

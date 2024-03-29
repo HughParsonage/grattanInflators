@@ -72,7 +72,7 @@ expect_error(cpi_inflator(ff, "2015-16"), "ff|from")
 expect_equal(cpi_inflator(c("2015-16", "2015-16"), NA_character_), c(NaN, NaN))
 expect_equal(cpi_inflator(c("2015-16", "2015-16"), from = NA_character_), c(NaN, NaN))
 
-flp <- c("2000-02-29", "2004-02-29", "1984-02-29", "1983-02-29")
+flp <- c(rep("2008-01-01", 3), "1983-02-29", "2000-02-29", "2004-02-29", "1984-02-29", "1983-02-29")
 expect_error(cpi_inflator(flp, "2000-01-01", check = 2L, series = "trimmed.mean"), "f(lp|rom).4.")
 
 # invalid mday
