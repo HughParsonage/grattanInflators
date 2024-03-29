@@ -164,7 +164,7 @@ static void check_valid_strings(unsigned int xpackminmax[2],
       int ei = err_string(&YM, xi, nxi, check, fy_month);
       if (!ei && packYearMonth(YM) < pack_min_date) {
         YearMonth YM_min = idate2YearMonth(min_date);
-        error("`%s[%lld] = %s`, which is earlier than the earliest date in the series (%d-%d-01)",
+        error("`%s[%lld] = %s`, which is earlier than the earliest date in the series (%d-%02d-01)",
               var, (long long)i + 1, xi, YM_min.year + MIN_YEAR, YM_min.month);
       }
       switch(ei) {

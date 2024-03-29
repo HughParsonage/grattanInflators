@@ -1,6 +1,6 @@
 Package: grattanInflators
 Title: Inflators for Australian Policy Analysis
-Version: 0.5.1
+Version: 0.5.2
 Authors@R: 
     person(given = "Hugh",
            family = "Parsonage",
