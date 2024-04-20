@@ -2,4 +2,4 @@
 
 0 errors | 0 warnings | 0 note
 
-* This is a package update.
+* This is a package update, fixing the errors on CRAN
