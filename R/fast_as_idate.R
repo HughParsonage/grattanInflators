@@ -44,3 +44,7 @@ all_dates <- function() {
   class(ans) <- c("IDate", "Date")
   ans
 }
+
+guess_format <- function(x) {
+  .Call("C_guess_date_format", x, PACKAGE = packageName())
+}

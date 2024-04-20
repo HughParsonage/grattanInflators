@@ -88,6 +88,7 @@ typedef struct {
 int string2month(const char * x);
 
 // check_input
+bool starts_with_yyyy(const char * x);
 
 // YearMonth
 YearMonth YM_NA(void);
