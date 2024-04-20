@@ -12,3 +12,6 @@
 !README.Rmd
 !cran-comments.md
 !NEWS.md
+!.github/
+!.github/workflows/
+!*.yaml
