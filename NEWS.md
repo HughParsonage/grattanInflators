@@ -3,6 +3,7 @@
 ### Internal
 
 * Fixed a test failing on CRAN due to fall-back to narrower date series
+* `fast_as_idate` now parses `%d%b%Y` and `%d-%m-%Y` type dates
 
 ## grattanInflators 0.5.1
 

@@ -10,7 +10,7 @@
 /* .Call calls */
 extern SEXP C_all_dates(SEXP);
 extern SEXP C_check_input(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_fastIDate(SEXP, SEXP, SEXP);
+extern SEXP C_fastIDate(SEXP, SEXP, SEXP, SEXP);
 extern SEXP C_format_idate(SEXP);
 extern SEXP C_Inflate(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP C_Inflate2(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
@@ -22,7 +22,7 @@ extern SEXP C_YearMonthSplit(SEXP, SEXP, SEXP, SEXP);
 static const R_CallMethodDef CallEntries[] = {
     {"C_all_dates",      (DL_FUNC) &C_all_dates,       1},
     {"C_check_input",    (DL_FUNC) &C_check_input,     8},
-    {"C_fastIDate",      (DL_FUNC) &C_fastIDate,       3},
+    {"C_fastIDate",      (DL_FUNC) &C_fastIDate,       4},
     {"C_format_idate",   (DL_FUNC) &C_format_idate,    1},
     {"C_Inflate",        (DL_FUNC) &C_Inflate,        10},
     {"C_Inflate2",       (DL_FUNC) &C_Inflate2,        7},
