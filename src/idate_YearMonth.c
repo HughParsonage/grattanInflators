@@ -348,6 +348,36 @@ static void ddbbyyyy2YearMonth(int * year, unsigned int * month, const char * xi
   }
 }
 
+// Guess format
+SEXP C_guess_date_format(SEXP x) {
+  if (!isString(x)) {
+    error("Expected a STRSXP."); // # nocov
+  }
+  const SEXP * xp = STRING_PTR(x);
+  R_xlen_t N = xlength(x);
+
+  for (R_xlen_t i = 0; i < N; ++i) {
+    if (xp[i] == NA_STRING) {
+      continue;
+    }
+    int n = length(xp[i]);
+    if (n < 9 || n > 10) {
+      continue;
+    }
+    const char * xi = CHAR(xp[i]);
+    if (starts_with_yyyy(xi)) {
+      return ScalarString(mkCharCE("%Y-%m-%d", CE_UTF8));
+    }
+    if (isalpha(xi[2])) {
+      return ScalarString(mkCharCE("%d%b%Y", CE_UTF8));
+    }
+    if (xi[0] >= '0' && xi[0] <= '2' && isdigit(xi[1]) && !isdigit(xi[2])) {
+      return ScalarString(mkCharCE("%d-%m-%Y", CE_UTF8));
+    }
+  }
+  return R_NilValue;
+}
+
 // ignores mday by default
 SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP Format, SEXP nthreads) {
   int nThread = as_nThread(nthreads);
