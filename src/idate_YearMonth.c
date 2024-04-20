@@ -264,37 +264,170 @@ static int string102month(const char * x) {
   return NA_INTEGER;
 }
 
-// ignores date
-SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP nthreads) {
+typedef enum {
+  yyyy_mm_dd,
+  dd_mm_yyyy,
+  ddbbyyyy
+} dateformat;
+
+dateformat encode_format(SEXP x) {
+  if (!isString(x)) {
+    error("`Format` must be type character but is type '%s'", type2char(TYPEOF(x)));
+  }
+  const char * xi = CHAR(STRING_ELT(x, 0));
+  if (xi[0] != '%') {
+    return yyyy_mm_dd;
+  }
+  if (!strcmp(xi, "%d%b%Y") || !strcmp(xi, "%d%B%Y")) {
+    return ddbbyyyy;
+  }
+  if (!strcmp(xi, "%d/%m/%Y")) {
+    return dd_mm_yyyy;
+  }
+
+  return yyyy_mm_dd;
+}
+
+// xi must have nchar 10
+static void dd_mm_yyyy2YearMonth(int * year, unsigned int * month, const char * xi) {
+  *year += xi[6] - '0';
+  *year *= 10;
+  *year += xi[7] - '0';
+  *year *= 10;
+  *year += xi[8] - '0';
+  *year *= 10;
+  *year += xi[9] - '0';
+
+  *month = (xi[3] == '1' ? 10 : 0) + (xi[4] - '0');
+}
+
+// xi must have nchar 9
+static void ddbbyyyy2YearMonth(int * year, unsigned int * month, const char * xi) {
+  *year += xi[5] - '0';
+  *year *= 10;
+  *year += xi[6] - '0';
+  *year *= 10;
+  *year += xi[7] - '0';
+  *year *= 10;
+  *year += xi[8] - '0';
+
+  switch(xi[2]) {
+  case 'J':
+    switch(xi[3]) {
+    case 'A':
+    case 'a':
+      *month = 1;
+      return;
+    case 'u':
+    case 'U':
+      *month = 6 + (xi[4] == 'l' || xi[4] == 'L');
+      return;
+    }
+    break;
+  case 'F':
+    *month = 2;
+    return;
+  case 'M':
+    *month = (xi[4] == 'r' || xi[4] == 'R') ? 3 : 5;
+    return;
+  case 'A':
+    *month = (xi[3] == 'p' || xi[3] == 'P') ? 4 : 8;
+    return;
+  case 'S':
+    *month = 9;
+    return;
+  case 'O':
+    *month = 10;
+    return;
+  case 'N':
+    *month = 11;
+    return;
+  case 'D':
+    *month = 12;
+    return;
+  }
+}
+
+// ignores mday by default
+SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP Format, SEXP nthreads) {
   int nThread = as_nThread(nthreads);
   if (!isString(x)) {
     error("Expected a STRSXP."); // # nocov
   }
   const bool incl_day = asLogical(IncludeDay);
+  dateformat format = encode_format(Format);
   const SEXP * xp = STRING_PTR(x);
   R_xlen_t N = xlength(x);
 
   SEXP ans = PROTECT(allocVector(INTSXP, N));
   int * restrict ansp = INTEGER(ans);
-  FORLOOP({
-    int n = length(xp[i]);
-    const char * xi = CHAR(xp[i]);
-    if (n != 10) {
-      ansp[i] = NA_INTEGER;
-      continue;
-    }
-    ansp[i] = 0;
-    int year_i = string102year(xi);
-    unsigned int month_i = string102month(xi);
-    if (year_i < 1948 || year_i > 2075 || month_i > 12) {
-      ansp[i] = NA_INTEGER;
-      continue;
-    }
-    ansp[i] = ARR[12 * (year_i - 1948) + (month_i - 1)];
-    if (incl_day) {
-      ansp[i] += 10 * (xi[8] - '0') + (xi[9] - '0') - 1;
-    }
-  })
+  switch(format) {
+  case yyyy_mm_dd:
+    FORLOOP({
+      int n = length(xp[i]);
+      const char * xi = CHAR(xp[i]);
+      if (n != 10) {
+        ansp[i] = NA_INTEGER;
+        continue;
+      }
+      ansp[i] = 0;
+      int year_i = string102year(xi);
+      unsigned int month_i = string102month(xi);
+      if (year_i < 1948 || year_i > 2075 || month_i > 12) {
+        ansp[i] = NA_INTEGER;
+        continue;
+      }
+      ansp[i] = ARR[12 * (year_i - 1948) + (month_i - 1)];
+      if (incl_day) {
+        ansp[i] += 10 * (xi[8] - '0') + (xi[9] - '0') - 1;
+      }
+    })
+    break;
+  case dd_mm_yyyy:
+    FORLOOP({
+      int n = length(xp[i]);
+      const char * xi = CHAR(xp[i]);
+      if (n != 10) {
+        ansp[i] = NA_INTEGER;
+        continue;
+      }
+      ansp[i] = 0;
+      int year_i = 0;
+      unsigned int month_i = 0;
+      dd_mm_yyyy2YearMonth(&year_i, &month_i, xi);
+      if (year_i < 1948 || year_i > 2075 || month_i > 12) {
+        ansp[i] = NA_INTEGER;
+        continue;
+      }
+      ansp[i] = ARR[12 * (year_i - 1948) + (month_i - 1)];
+      if (incl_day) {
+        ansp[i] += 10 * (xi[0] - '0') + (xi[1] - '0') - 1;
+      }
+    })
+    break;
+  case ddbbyyyy:
+    FORLOOP({
+      int n = length(xp[i]);
+      const char * xi = CHAR(xp[i]);
+      if (n != 9) {
+        ansp[i] = NA_INTEGER;
+        continue;
+      }
+      ansp[i] = 0;
+      int year_i = 0;
+      unsigned int month_i = 0;
+      ddbbyyyy2YearMonth(&year_i, &month_i, xi);
+      if (year_i < 1948 || year_i > 2075 || month_i > 12) {
+        ansp[i] = NA_INTEGER;
+        continue;
+      }
+      ansp[i] = ARR[12 * (year_i - 1948) + (month_i - 1)];
+      if (incl_day) {
+        ansp[i] += 10 * (xi[0] - '0') + (xi[1] - '0') - 1;
+      }
+    })
+    break;
+  }
   UNPROTECT(1);
   return ans;
 }

@@ -4,7 +4,13 @@
 \alias{fast_as_idate}
 \title{Faster conversion to IDate for common dates}
 \usage{
-fast_as_idate(x, incl_day = TRUE, check = 0L, nThread = 1L)
+fast_as_idate(
+  x,
+  incl_day = TRUE,
+  check = 0L,
+  nThread = 1L,
+  format = "\%Y-\%m-\%d"
+)
 }
 \arguments{
 \item{x}{The character vector to convert, in \code{YYYY-mm-dd} form only.}
@@ -17,12 +23,21 @@ in the output will be -01.}
 checks.}
 
 \item{nThread}{Number of threads to use.}
+
+\item{format}{The expected format of the input.}
 }
 \value{
 A vector of class \code{IDate}, \code{Date} the same length as \code{x}.
 }
 \description{
 Faster conversion to IDate for common dates
+}
+\details{
+A 10M vector of dates was observed to be parsed in 0.1s whereas
+\code{as.IDate} took 9.0s, and \code{lubridate::ymd}, 1.6s.
+Note that false dates (such as Feb 30)
+will be naively parsed without warning or error (unless `check` is
+changed from its default argument).
 }
 \examples{
 # For ABS data, we only need to care (and check)
