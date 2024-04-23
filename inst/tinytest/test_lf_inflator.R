@@ -14,15 +14,9 @@ expect_equal(lf_inflator(from_i, to_i), lf_inflator(from_c, to_c))
 
 expect_equal(lf_inflator(c("2015-16", "2015-16"), from = NA_character_), c(NaN, NaN))
 
-lfi_series <- lfi_original()[date <= fast_as_idate("2024-03-03")]
+lfi_series <- lfi_original()[date <= fast_as_idate("2024-02-03")]
 
 expect_warning(lf_inflator("2020-21", "2023-24", series = lfi_series))
 expect_message(lf_inflator("2020-21", "2023-24", series = lfi_series, check = -1L))
 
-was_warning <-
-  tryCatch(lf_inflator("2020-21", "2023-24", series = lfi_series),
-           warning = function(e) {
-             TRUE
-           })
-expect_true(was_warning)
 
