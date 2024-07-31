@@ -334,7 +334,7 @@ SEXP C_check_input(SEXP x, SEXP Var, SEXP Check, SEXP Class, SEXP minDate, SEXP 
 
   switch(TYPEOF(x)) {
   case STRSXP:
-    check_strsxp(&any_beyond, STRING_PTR(x), xlength(x), check, var, fy_month, nThread, min_date, max_date);
+    check_strsxp(&any_beyond, STRING_PTR_RO(x), xlength(x), check, var, fy_month, nThread, min_date, max_date);
     break;
   case INTSXP:
     check_intsxp(&any_beyond, INTEGER(x), xlength(x), check, var, was_date, nThread, min_date, max_date);

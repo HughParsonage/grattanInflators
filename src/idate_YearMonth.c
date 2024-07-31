@@ -353,7 +353,7 @@ SEXP C_guess_date_format(SEXP x) {
   if (!isString(x)) {
     error("Expected a STRSXP."); // # nocov
   }
-  const SEXP * xp = STRING_PTR(x);
+  const SEXP * xp = STRING_PTR_RO(x);
   R_xlen_t N = xlength(x);
 
   for (R_xlen_t i = 0; i < N; ++i) {
@@ -386,7 +386,7 @@ SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP Format, SEXP nthreads) {
   }
   const bool incl_day = asLogical(IncludeDay);
   dateformat format = encode_format(Format);
-  const SEXP * xp = STRING_PTR(x);
+  const SEXP * xp = STRING_PTR_RO(x);
   R_xlen_t N = xlength(x);
 
   SEXP ans = PROTECT(allocVector(INTSXP, N));
@@ -490,16 +490,15 @@ SEXP C_format_idate(SEXP x) {
   R_xlen_t N = xlength(x);
   const int * xp = INTEGER(x);
   SEXP ans = PROTECT(allocVector(STRSXP, N));
-  SEXP * ansp = STRING_PTR(ans);
   for (R_xlen_t i = 0; i < N; ++i) {
     int xpi = xp[i];
     if (xpi < MIN_IDATE || xpi > MAX_IDATE) {
-      ansp[i] = NA_STRING;
+      SET_STRING_ELT(ans, i, NA_STRING);
       continue;
     }
     char oi[11] = {0};
     format_1_idate(oi, xp[i]);
-    ansp[i] = mkCharCE((const char *)oi, CE_UTF8);
+    SET_STRING_ELT(ans, i, mkCharCE((const char *)oi, CE_UTF8));
   }
   UNPROTECT(1);
   return ans;

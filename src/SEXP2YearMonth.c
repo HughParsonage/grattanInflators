@@ -138,7 +138,7 @@ void SEXP2YearMonth(YearMonth * ansp,
     }
     return;
   }
-  const SEXP * xp = STRING_PTR(x);
+  const SEXP * xp = STRING_PTR_RO(x);
 
   FORLOOP({
     int n = length(xp[i]);

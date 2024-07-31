@@ -55,7 +55,7 @@ static void minDate(char yyyy_mm[8], const SEXP * xp, R_xlen_t N) {
 
 SEXP C_minDate(SEXP x) {
   R_xlen_t N = xlength(x);
-  const SEXP * xp = STRING_PTR(x);
+  const SEXP * xp = STRING_PTR_RO(x);
   char yyyy_mm[8] = {'2', '9', '9', '9', '-', '1', '9', '\0'};
   minDate(yyyy_mm, xp, N);
   return ScalarString(mkCharCE(yyyy_mm, CE_UTF8));
