@@ -1,3 +1,12 @@
+## grattanInflators 0.5.4
+
+* Internal
+  - `STRING_PTR` now `STRING_PTR_RO`
+
+## grattanInflators 0.5.3
+
+* Fixed a time-dependent unit test
+
 ## grattanInflators 0.5.2
 
 ### Internal
