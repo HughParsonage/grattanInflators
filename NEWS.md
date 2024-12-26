@@ -1,3 +1,9 @@
+## grattanInflators 0.5.5
+
+* Internal
+  - Checking can occur without error in the absence of an internet connection
+    (though the tests will be perfunctory)
+
 ## grattanInflators 0.5.4
 
 * Internal

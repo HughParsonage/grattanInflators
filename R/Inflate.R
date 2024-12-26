@@ -51,6 +51,13 @@ Inflate <- function(from, to,
   from <- ensure_date(from)
   to <- ensure_date(to)
 
+  # nocov start
+  if (!is.data.table(index) || !nrow(index)) {
+    message("Index had zero rows, possibly due to a faulty download, so returning NULL.")
+    return(NULL)
+  }
+  # nocov end
+
   index_dates <- as.IDate(.subset2(index, "date"))
   minDate <- index_dates[1L]
   maxDate <- index_dates[length(index_dates)]

@@ -53,7 +53,8 @@ wage_inflator <- function(from = NULL, to = NULL,
     warning(sys_call, ": ", e$message, call. = FALSE)
   },
   message = function(e) {
-    message(sys_call, ": ", e$message)
+    # Uncommenting this line results in the message being duplicated
+    # message(sys_call, ": ", e$message)
   })
   ans
 }

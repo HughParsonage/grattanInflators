@@ -5,6 +5,7 @@
 \alias{content2series_id}
 \alias{download_data}
 \alias{when_last_updated}
+\alias{grattanInflators_has_no_data}
 \title{ABS Connections}
 \usage{
 content2series_id(
@@ -16,6 +17,8 @@ content2series_id(
 download_data(series_id = NULL)
 
 when_last_updated()
+
+grattanInflators_has_no_data()
 }
 \arguments{
 \item{broad_cat, adjustment}{Definitions to identify the Series ID. If any
@@ -30,9 +33,11 @@ the default, downloads all files required.}
 \item{\code{content2series_id}}{A character vector, the Series ID identified
 by `broad_cat` and `adjustment`}
 \item{\code{download_data}}{Called for its side-effect, downloading the
-data required. If successful, returns zero.}
+data required. Returns an integer vector of the statuses of each download.}
 \item{\code{when_last_updated}}{The date the downloaded data was last retrieved, or
 the string \code{"Never"} if the file does not exist.}
+\item{\code{grattanInflators_has_no_data}}{\code{TRUE} if no data has ever been
+received (or package directory removed); likely due to no internet connection.}
 }
 }
 \description{

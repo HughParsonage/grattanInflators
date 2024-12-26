@@ -81,7 +81,8 @@ cpi_inflator <- function(from = NULL, to = NULL,
     warning(sys_call, ": ", e$message, call. = FALSE)
   },
   message = function(e) {
-    message(sys_call, ": ", e$message)
+    # Uncommenting this line results in the message being duplicated
+    # message(sys_call, ": ", e$message)
   })
   ans
 }
@@ -159,6 +160,10 @@ cpi_inflator2 <- function(from, to) {
 
 cpi_custom <- function(series, ..., FORECAST = FALSE, LEVEL = "mean") {
   Index <- GET_SERIES(cpi2series_id(series))
+  if (!is.data.table(Index) || !nrow(Index)) {
+    # handle elsewhere
+    return(Index) # nocov
+  }
   if (missing(..1)) {
     if (isTRUE(FORECAST)) {
       return(.prolong_ets(Index, level = LEVEL))

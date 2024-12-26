@@ -19,9 +19,11 @@
 #' \item{\code{content2series_id}}{A character vector, the Series ID identified
 #' by `broad_cat` and `adjustment`}
 #' \item{\code{download_data}}{Called for its side-effect, downloading the
-#' data required. If successful, returns zero.}
+#' data required. Returns an integer vector of the statuses of each download.}
 #' \item{\code{when_last_updated}}{The date the downloaded data was last retrieved, or
 #' the string \code{"Never"} if the file does not exist.}
+#' \item{\code{grattanInflators_has_no_data}}{\code{TRUE} if no data has ever been
+#' received (or package directory removed); likely due to no internet connection.}
 #' }
 #'
 NULL
@@ -94,7 +96,11 @@ extdata_series_id <- function(series_id) {
 
 fread_extdata_series_id <- function(series_id) {
   if (!file.exists(extdata_series_id(series_id)) || !file.size(extdata_series_id(series_id))) {
-    download_data(series_id) # nocov
+    res <- download_data(series_id) # nocov
+    if (sum(res)) {
+      message("download_data did not succeed.")
+      return(data.table())
+    }
   }
   ans <- fread(extdata_series_id(series_id), sep = "\t")
   stopifnot(hasName(ans, "date"))
@@ -129,30 +135,45 @@ download_data <- function(series_id = NULL) {
     series_id <- content2series_id()
   }
 
-  sapply(series_id, function(sid) {
-    if (!nzchar(sid)) {
-      return(NULL)
-    }
-    tempf <- tempfile(fileext = ".tsv")
-    sid_url <- find_hughparsonage_abs_catalogue(sid)
-    status <- download.file(sid_url, tempf, mode = "wb", quiet = TRUE)
-    # nocov start
-    if (status) {
-      stop("status_id = ", sid, " had error status", status, ".\n",
-           "URL = ", sid_url)
-    }
-    status <- file.copy(tempf, extdata_series_id(sid), overwrite = TRUE)
-    file.remove(tempf)
-    if (!status) {
-      stop("File rename did not succeed (status code ", status, ".\n\t",
-           "downloaded file: ", tempf, "\n\t",
-           "intended destfile: ", extdata_series_id(sid))
-    }
-    # nocov end
-  })
-  saveRDS(Sys.Date(), date_last_updated.rds())
 
-  invisible(0L)
+  ans <-
+    sapply(series_id, function(sid) {
+      if (!nzchar(sid)) {
+        return(integer(0))
+      }
+      tempf <- tempfile(fileext = ".tsv")
+      sid_url <- find_hughparsonage_abs_catalogue(sid)
+      status <- tryCatch(download.file(sid_url, tempf, mode = "wb", quiet = TRUE),
+                         error = function(e) {
+                           message("download.file failed for url \n", sid_url, "\n",
+                                   "Error message ", e$m)
+                           1L
+                         },
+                         warning = function(e) {
+                           message("download.file failed for url \n", sid_url, "\n",
+                                   "Warning message ", e$m)
+                           2L
+                         })
+
+      # nocov start
+      if (status) {
+        return(status)
+      }
+      copy_status <- file.copy(tempf, extdata_series_id(sid), overwrite = TRUE)
+      file.remove(tempf)
+      if (!copy_status) {
+        message("File rename did not succeed", ".\n\t",
+                "downloaded file: ", tempf, "\n\t",
+                "intended destfile: ", extdata_series_id(sid))
+        status <- 3L
+      }
+      return(as.integer(status))
+      # nocov end
+    })
+  if (!sum(ans, na.rm = TRUE)) {
+    saveRDS(Sys.Date(), date_last_updated.rds())
+  }
+  ans
 }
 
 date_last_updated.rds <- function() {
@@ -167,6 +188,14 @@ when_last_updated <- function() {
     return("Never updated") # nocov
   }
   return(readRDS(date_last_updated.rds()))
+}
+
+#' @rdname abs-conn
+#' @export
+grattanInflators_has_no_data <- function() {
+  !file.exists(date_last_updated.rds()) ||
+    !length(dir(tools::R_user_dir("grattanInflators", which = "data"),
+                pattern = "\\.tsv$"))
 }
 
 

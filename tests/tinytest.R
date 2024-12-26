@@ -2,6 +2,8 @@
 if (requireNamespace("tinytest", quietly = TRUE)) {
   library(data.table)
   setDTthreads(1)
-  tinytest::test_package("grattanInflators")
+  if (isFALSE(grattanInflators::grattanInflators_has_no_data())) {
+    tinytest::test_package("grattanInflators")
+  }
 }
 
