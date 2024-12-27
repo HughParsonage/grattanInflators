@@ -97,9 +97,9 @@ extdata_series_id <- function(series_id) {
 fread_extdata_series_id <- function(series_id) {
   if (!file.exists(extdata_series_id(series_id)) || !file.size(extdata_series_id(series_id))) {
     res <- download_data(series_id) # nocov
-    if (sum(res)) {
-      message("download_data did not succeed.")
-      return(data.table())
+    if (sum(res, na.rm = TRUE)) {
+      # message("download_data did not succeed.")
+      return(data.table()) # nocov
     }
   }
   ans <- fread(extdata_series_id(series_id), sep = "\t")
@@ -139,7 +139,7 @@ download_data <- function(series_id = NULL) {
   ans <-
     sapply(series_id, function(sid) {
       if (!nzchar(sid)) {
-        return(integer(0))
+        return(NA_integer_)
       }
       tempf <- tempfile(fileext = ".tsv")
       sid_url <- find_hughparsonage_abs_catalogue(sid)
