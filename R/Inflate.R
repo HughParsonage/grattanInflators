@@ -61,10 +61,10 @@ Inflate <- function(from, to,
   index_dates <- as.IDate(.subset2(index, "date"))
   minDate <- index_dates[1L]
   maxDate <- index_dates[length(index_dates)]
-  if (is.na(minDate) || !inherits(minDate, "IDate") || minDate < "1948-01-01" || minDate > "2075-12-31") {
+  if (is.na(minDate) || !inherits(minDate, "IDate") || minDate < MIN_DATE || minDate > MAX_DATE) {
     stop("index[1] = ", as.character(minDate), " but the only supported dates are between 1948 and 2075")
   }
-  if (is.na(maxDate) || !inherits(maxDate, "IDate") || maxDate < "1948-01-01" || maxDate > "2075-12-31") {
+  if (is.na(maxDate) || !inherits(maxDate, "IDate") || maxDate < MIN_DATE || maxDate > MAX_DATE) {
     stop("index[1] = ", as.character(maxDate), " but the only supported dates are between 1948 and 2075")
   }
 
@@ -208,6 +208,8 @@ Inflate <- function(from, to,
                    value = last(.subset2(index, "value")) * (1 + r) ^ pow))
 }
 
+MIN_DATE <- as.IDate("1948-01-01")
+MAX_DATE <- as.IDate("2075-12-31")
 
 
 
