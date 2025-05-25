@@ -301,6 +301,30 @@ static void dd_mm_yyyy2YearMonth(int * year, unsigned int * month, const char * 
   *month = (xi[3] == '1' ? 10 : 0) + (xi[4] - '0');
 }
 
+static void d_mm_yyyy2YearMonth(int * year, unsigned int * month, const char * xi) {
+  *year += xi[5] - '0';
+  *year *= 10;
+  *year += xi[6] - '0';
+  *year *= 10;
+  *year += xi[7] - '0';
+  *year *= 10;
+  *year += xi[8] - '0';
+
+  *month = (xi[2] == '1' ? 10 : 0) + (xi[3] - '0');
+}
+
+static void d_m_yyyy2YearMonth(int * year, unsigned int * month, const char * xi) {
+  *year += xi[4] - '0';
+  *year *= 10;
+  *year += xi[5] - '0';
+  *year *= 10;
+  *year += xi[6] - '0';
+  *year *= 10;
+  *year += xi[7] - '0';
+
+  *month = xi[2] - '0';
+}
+
 // xi must have nchar 9
 static void ddbbyyyy2YearMonth(int * year, unsigned int * month, const char * xi) {
   *year += xi[5] - '0';
@@ -417,21 +441,31 @@ SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP Format, SEXP nthreads) {
     FORLOOP({
       int n = length(xp[i]);
       const char * xi = CHAR(xp[i]);
-      if (n != 10) {
+      if (n < 8 || n > 10) {
         ansp[i] = NA_INTEGER;
         continue;
       }
       ansp[i] = 0;
       int year_i = 0;
       unsigned int month_i = 0;
-      dd_mm_yyyy2YearMonth(&year_i, &month_i, xi);
+      if (n == 10) {
+        dd_mm_yyyy2YearMonth(&year_i, &month_i, xi);
+      } else if (n == 9) {
+         d_mm_yyyy2YearMonth(&year_i, &month_i, xi);
+      } else {
+        d_m_yyyy2YearMonth(&year_i, &month_i, xi);
+      }
       if (year_i < 1948 || year_i > 2075 || month_i > 12) {
         ansp[i] = NA_INTEGER;
         continue;
       }
       ansp[i] = ARR[12 * (year_i - 1948) + (month_i - 1)];
       if (incl_day) {
-        ansp[i] += 10 * (xi[0] - '0') + (xi[1] - '0') - 1;
+        if (n == 10 || isdigit(xi[1])) {
+          ansp[i] += 10 * (xi[0] - '0') + (xi[1] - '0') - 1;
+        } else {
+          ansp[i] += (xi[0] - '0') - 1;
+        }
       }
     })
     break;

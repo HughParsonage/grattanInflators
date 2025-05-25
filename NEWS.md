@@ -1,3 +1,9 @@
+## grattanInflators 0.5.6
+
+* Bug fix:
+  - `fast_as_idate(x, format = "%d/%m/%Y")` now works with nchar(x) != 10, 
+    e.g. "1/1/2000"
+
 ## grattanInflators 0.5.5
 
 * Internal

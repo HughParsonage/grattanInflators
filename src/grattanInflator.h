@@ -15,7 +15,17 @@
 #include <stdint.h> // for uint64_t rather than unsigned long long, intptr
 #include <stdbool.h>
 #include <math.h>
-#include <ctype.h>
+// #include <ctype.h>
+// prefer these range checks to ctype since isdigit requires cast to unsigned
+static inline bool isdigit(char c) {
+  return (unsigned)(c - '0') < 10u;
+}
+
+static inline bool isalpha(char c) {
+  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+
+}
+
 #if defined _OPENMP && _OPENMP >= 201511
 #define FORLOOP(content) do {                                           \
 _Pragma("omp parallel for num_threads(nThread)")                        \
