@@ -1,3 +1,8 @@
+## grattanInflators 0.5.7
+
+* Bug fix:
+  - Forecast defaults no longer exceed the permissible date range
+
 ## grattanInflators 0.5.6
 
 * Bug fix:

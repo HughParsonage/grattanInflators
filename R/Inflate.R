@@ -203,9 +203,11 @@ Inflate <- function(from, to,
 
   pow <- seq_along(new_dates) / date2freq(index_dates)
 
-  rbind(index,
-        data.table(date = new_dates,
-                   value = last(.subset2(index, "value")) * (1 + r) ^ pow))
+  ans <-
+    rbind(index,
+          data.table(date = new_dates,
+                     value = last(.subset2(index, "value")) * (1 + r) ^ pow))
+  ans[date %between% c(MIN_DATE, MAX_DATE)]
 }
 
 MIN_DATE <- as.IDate("1948-01-01")
