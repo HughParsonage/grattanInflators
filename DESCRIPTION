@@ -19,7 +19,7 @@ Imports:
     hutils,
     tools,
     utils
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3
 Suggests: 
     distributional,
     fable,

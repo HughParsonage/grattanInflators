@@ -137,21 +137,21 @@ Inflate <- function(from, to,
     yrs <- year(until) - year(last(index_dates))
     new_value <- last(index_values) * r^(seq_len(yrs + 1))
     new_dates <- seq(last(index_dates), by = "1 year", length.out = yrs + 2)
-    return(rbind(index, data.table(date = new_dates, value = new_value)))
+    return(rbind(index, data.table(date = new_dates, value = new_value))[date <= MAX_DATE])
   }
   if (freq == 4) {
     r <- last(index_values) / index_values[length(index_values) - 4]
     yrs <- 4 * (year(until) - year(last(index_dates)))
     new_value <- last(index_values) * r^((seq_len(yrs + 4)) / 4)
     new_dates <- seq(last(index_dates), by = "3 months", length.out = yrs + 5)[-1]
-    return(rbind(index, data.table(date = new_dates, value = new_value)))
+    return(rbind(index, data.table(date = new_dates, value = new_value))[date <= MAX_DATE])
   }
   if (freq == 12) {
     r <- last(index_values) / index_values[length(index_values) - 12]
     yrs <- 4 * (year(until) - year(last(index_dates)))
     new_value <- last(index_values) * r^((seq_len(yrs + 4)) / 4)
     new_dates <- seq(last(index_dates), by = "3 months", length.out = yrs + 5)[-1]
-    return(rbind(index, data.table(date = new_dates, value = new_value)))
+    return(rbind(index, data.table(date = new_dates, value = new_value))[date <= MAX_DATE])
   }
 
 }
