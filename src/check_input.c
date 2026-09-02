@@ -336,6 +336,10 @@ void check_intsxp(bool * any_beyond,
                   const int max_date) {
   int xminmax[2];
   iminmax(xminmax, xp, N, 3, nThread);
+  if (xminmax[0] == INT_MAX && xminmax[1] == INT_MIN) {
+    *any_beyond = false;
+    return;
+  }
 
   if (was_date) {
     if (min_date > xminmax[0] || xminmax[0] < MIN_IDATE) {
@@ -380,44 +384,54 @@ void check_intsxp(bool * any_beyond,
 
   } else {
     // was year
-    int yr_min_date = year(min_date);
-    int yr_max_date = year(max_date);
+    const int yr_min_date = year(min_date);
+    const int yr_max_date = year(max_date);
+    const int month_min_date = idate2YearMonth(min_date).month;
+    const int month_max_date = idate2YearMonth(max_date).month;
     // fy::fy2yr() supplies the ending year. A Jul-Dec financial-year month is
     // in the preceding calendar year, matching SEXP2YearMonth().
-    int fy_adjust = was_fy && fy_month >= 7;
-    int resolved_min = xminmax[0] - fy_adjust;
-    int resolved_max = xminmax[1] - fy_adjust;
-    if (yr_min_date > resolved_min) {
+    const int fy_adjust = was_fy && fy_month >= 7;
+    const int input_month = was_fy ? fy_month : 1;
+    const int resolved_min = xminmax[0] - fy_adjust;
+    const int resolved_max = xminmax[1] - fy_adjust;
+    const int64_t min_date_ym = 12LL * yr_min_date + month_min_date;
+    const int64_t max_date_ym = 12LL * yr_max_date + month_max_date;
+    const int64_t resolved_min_ym = 12LL * resolved_min + input_month;
+    const int64_t resolved_max_ym = 12LL * resolved_max + input_month;
+    if (min_date_ym > resolved_min_ym) {
       for (R_xlen_t i = 0; i < N; ++i) {
         if (xp[i] == NA_INTEGER) {
           continue;
         }
-        int resolved_i = xp[i] - fy_adjust;
-        if (yr_min_date <= resolved_i) {
+        const int resolved_i = xp[i] - fy_adjust;
+        const int64_t resolved_i_ym = 12LL * resolved_i + input_month;
+        if (min_date_ym <= resolved_i_ym) {
           continue;
         }
-        error("`%s[%lld] = %d`, which is earlier than the earliest date in the series (%d).",
-                var, (long long)i + 1, resolved_i, yr_min_date);
-        break;
+        error("`%s[%lld]` resolves to %d-%02d, which is earlier than the earliest date in the series (%d-%02d).",
+              var, (long long)i + 1, resolved_i, input_month,
+              yr_min_date, month_min_date);
       }
     }
 
-    *any_beyond = yr_max_date < resolved_max;
+    *any_beyond = max_date_ym < resolved_max_ym;
     if ((check >= 2 && *any_beyond) || resolved_max > MAX_YEAR) {
       for (R_xlen_t i = 0; i < N; ++i) {
         if (xp[i] == NA_INTEGER) {
           continue;
         }
-        int resolved_i = xp[i] - fy_adjust;
+        const int resolved_i = xp[i] - fy_adjust;
         if (resolved_i > MAX_YEAR) {
           error("`%s[%lld] = %d`, which is outside the supported years (latest %d)",
                 var, (long long)i + 1, resolved_i, MAX_YEAR);
         }
-        if (resolved_i <= yr_max_date) {
+        const int64_t resolved_i_ym = 12LL * resolved_i + input_month;
+        if (resolved_i_ym <= max_date_ym) {
           continue;
         }
-        error("`check >= 2` yet `%s[%lld] = %d`, which is later than the latest year in the series (%d).",
-              var, (long long)i + 1, resolved_i, yr_max_date);
+        error("`check >= 2` yet `%s[%lld]` resolves to %d-%02d, which is later than the latest date in the series (%d-%02d).",
+              var, (long long)i + 1, resolved_i, input_month,
+              yr_max_date, month_max_date);
       }
     }
   }

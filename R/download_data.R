@@ -213,7 +213,10 @@ download_data <- function(series_id = NULL) {
       }
       # Validate the whole file before it is allowed to replace a usable cache.
       bad <- tryCatch({
-        validate_index(read_series_tsv(tempf), var = sid)
+        # ABS series can include unavailable leading/trailing calendar
+        # scaffold rows. Trim only those boundary gaps; an interior missing
+        # observation remains an error.
+        validate_index(read_series_tsv(tempf, strict = FALSE), var = sid)
         NULL
       }, error = function(e) conditionMessage(e))
       if (!is.null(bad)) {
@@ -265,5 +268,4 @@ grattanInflators_has_no_data <- function() {
     !length(dir(tools::R_user_dir("grattanInflators", which = "data"),
                 pattern = "\\.tsv$"))
 }
-
 

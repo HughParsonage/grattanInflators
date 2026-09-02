@@ -284,6 +284,11 @@ typedef enum {
   yyyy_mm_dd,
   dd_mm_yyyy,
   ddbbyyyy
+} dateorder;
+
+typedef struct {
+  dateorder order;
+  char separator;
 } dateformat;
 
 // An unknown format must be an error: silently reinterpreting it as some
@@ -294,18 +299,22 @@ dateformat encode_format(SEXP x) {
   }
   const char * xi = CHAR(STRING_ELT(x, 0));
   if (!strcmp(xi, "%Y-%m-%d") || !strcmp(xi, "%Y/%m/%d") || !strcmp(xi, "%Y.%m.%d")) {
-    return yyyy_mm_dd;
+    dateformat ans = { .order = yyyy_mm_dd, .separator = xi[2] };
+    return ans;
   }
   if (!strcmp(xi, "%d%b%Y") || !strcmp(xi, "%d%B%Y")) {
-    return ddbbyyyy;
+    dateformat ans = { .order = ddbbyyyy, .separator = '\0' };
+    return ans;
   }
   if (!strcmp(xi, "%d/%m/%Y") || !strcmp(xi, "%d-%m-%Y") || !strcmp(xi, "%d.%m.%Y")) {
-    return dd_mm_yyyy;
+    dateformat ans = { .order = dd_mm_yyyy, .separator = xi[2] };
+    return ans;
   }
   error("`format = \"%s\"` is not supported. Supported formats are "
         "\"%%Y-%%m-%%d\", \"%%d/%%m/%%Y\", \"%%d-%%m-%%Y\" and \"%%d%%b%%Y\".",
         xi);
-  return yyyy_mm_dd; // # nocov
+  dateformat ans = { .order = yyyy_mm_dd, .separator = '-' }; // # nocov
+  return ans; // # nocov
 }
 
 // Read `n` consecutive digits starting at x[at]; returns -1 if any is not an
@@ -325,7 +334,8 @@ static int read_digits(const char * x, int at, int n) {
 // Parses d[d]<sep>m[m]<sep>yyyy, where <sep> is '-', '/' or '.'. Scanning
 // rather than reading fixed offsets means the one- and two-digit day and month
 // variants are handled by the same (validated) code path.
-static bool parse_dmy(const char * xi, int n, int * year, int * month, int * mday) {
+static bool parse_dmy(const char * xi, int n, char separator,
+                      int * year, int * month, int * mday) {
   int at = 0;
   int d = 0, m = 0, y = 0, nd = 0, nm = 0;
   while (at < n && nd < 2 && gi_isdigit(xi[at])) {
@@ -333,7 +343,7 @@ static bool parse_dmy(const char * xi, int n, int * year, int * month, int * mda
     ++at;
     ++nd;
   }
-  if (nd == 0 || at >= n || !gi_issep(xi[at])) {
+  if (nd == 0 || at >= n || xi[at] != separator) {
     return false;
   }
   ++at;
@@ -342,7 +352,7 @@ static bool parse_dmy(const char * xi, int n, int * year, int * month, int * mda
     ++at;
     ++nm;
   }
-  if (nm == 0 || at >= n || !gi_issep(xi[at])) {
+  if (nm == 0 || at >= n || xi[at] != separator) {
     return false;
   }
   ++at;
@@ -411,12 +421,12 @@ static int parse_1_idate(const char * xi, int n, dateformat format,
   int month_i = -1;
   int parsed_mday = -1;
 
-  switch (format) {
+  switch (format.order) {
   case yyyy_mm_dd:
     if (n != 10) {
       return NA_INTEGER;
     }
-    if (check >= 1 && (!gi_issep(xi[4]) || !gi_issep(xi[7]))) {
+    if (xi[4] != format.separator || xi[7] != format.separator) {
       return NA_INTEGER;
     }
     year_i = string102year(xi);
@@ -425,7 +435,8 @@ static int parse_1_idate(const char * xi, int n, dateformat format,
     break;
   case dd_mm_yyyy:
     if (n < 8 || n > 10 ||
-        !parse_dmy(xi, n, &year_i, &month_i, &parsed_mday)) {
+        !parse_dmy(xi, n, format.separator,
+                   &year_i, &month_i, &parsed_mday)) {
       return NA_INTEGER;
     }
     break;
@@ -449,7 +460,7 @@ static int parse_1_idate(const char * xi, int n, dateformat format,
 
 static void invalid_date_error(R_xlen_t i, const char * x, int n,
                                dateformat format, const char * format_string) {
-  if (format == yyyy_mm_dd) {
+  if (format.order == yyyy_mm_dd) {
     if (n == 7) {
       error("`x[%lld] = %s` is not a valid fy or date; expected YYYY-mm-dd.",
             (long long)i + 1, x);

@@ -145,6 +145,21 @@ expect_error(read_tsv(fixture(c(
   "date\tvalue", "2019-01-01\t100", "2020-01-01\t", "2021-01-01\t110"
 )), strict = FALSE), "missing or unparseable")
 
+# The same boundary-trimming mode used for newly downloaded ABS files yields
+# a regular index while retaining every available observation.
+download_scaffold <- fixture(c(
+  "date\tvalue",
+  "2019-12-01\t",
+  "2020-03-01\t100",
+  "2020-06-01\t101",
+  "2020-09-01\t102",
+  "2020-12-01\t"
+))
+trimmed_download <- read_tsv(download_scaffold, strict = FALSE)
+expect_equal(trimmed_download$date,
+             as.IDate(c("2020-03-01", "2020-06-01", "2020-09-01")))
+expect_equal(length(grattanInflators:::validate_index(trimmed_download)), 3L)
+
 # The horizon is endpoint- and frequency-dependent; an old monthly custom
 # index can require more than the former fixed 700 observations.
 old_monthly_dates <- seq(as.IDate("1999-01-01"), as.IDate("2000-12-01"),

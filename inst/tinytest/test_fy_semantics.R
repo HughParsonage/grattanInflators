@@ -65,6 +65,37 @@ expect_true(is.double(ii("2022-23", "2010-01-01", index = IndexM, fy_month = 3L)
 expect_error(ii("2030-31", "2010-01-01", index = IndexM, fy_month = 3L), "later")
 expect_error(ii("2030-31", "2010-01-01", index = IndexM, fy_month = 9L), "later")
 
+# Bounds are compared at month precision. This index ends in Jun-2016, so an
+# FY resolved to Sep-2016 is beyond it even though both are in calendar 2016.
+IndexM_Jun2016 <- data.table(
+  date = seq(as.IDate("2015-01-01"), as.IDate("2016-06-01"), by = "1 month"),
+  value = 1.002^(0:17)
+)
+fy_sep2016 <- fy::yr2fy(2017L)
+expect_true(grattanInflators:::.check_input(
+  grattanInflators:::ensure_date(fy_sep2016, fy_month = 9L),
+  minDate = first(IndexM_Jun2016$date), maxDate = last(IndexM_Jun2016$date),
+  check = 1L, nThread = 1L, fy_month = 9L, var = "fy_sep2016",
+  xclass = grattanInflators:::CLASS_FY
+))
+expect_error(ii(fy_sep2016, "2016-01-01", index = IndexM_Jun2016,
+                fy_month = 9L, check = 2L), "later")
+expect_error(ii("2016-17", "2016-01-01", index = IndexM_Jun2016,
+                fy_month = 9L, check = 2L), "later")
+projected_fy <- suppressMessages(suppressWarnings(
+  ii(fy_sep2016, "2016-01-01", index = IndexM_Jun2016,
+     fy_month = 9L, check = 1L)
+))
+expect_true(is.finite(projected_fy))
+
+# The symmetric lower-bound case is also month-aware.
+IndexM_Dec2015 <- data.table(
+  date = seq(as.IDate("2015-12-01"), as.IDate("2017-05-01"), by = "1 month"),
+  value = 1.002^(0:17)
+)
+expect_error(ii(fy::yr2fy(2016L), "2016-01-01", index = IndexM_Dec2015,
+                fy_month = 9L, check = 1L), "earlier")
+
 # On an annual series not anchored in January, financial years must stay on
 # the anchor-aware generic path even when both arguments are scalar <fy>s.
 IndexA_Jun <- data.table(date = as.IDate(sprintf("%d-06-01", 2010:2020)),
