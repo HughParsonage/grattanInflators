@@ -144,6 +144,10 @@ expect_equal(nrow(read_tsv(legacy_boundary, strict = FALSE)), 1L)
 expect_error(read_tsv(fixture(c(
   "date\tvalue", "2019-01-01\t100", "2020-01-01\t", "2021-01-01\t110"
 )), strict = FALSE), "missing or unparseable")
+# Syntactically plausible dates must not be normalized into another month.
+expect_error(read_tsv(fixture(c(
+  "date\tvalue", "2021-02-29\t100", "2022-02-29\t110"
+))), "missing or unparseable")
 
 # The same boundary-trimming mode used for newly downloaded ABS files yields
 # a regular index while retaining every available observation.

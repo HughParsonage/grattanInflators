@@ -110,7 +110,13 @@ read_series_tsv <- function(path, strict = TRUE) {
   if (inherits(date, "Date") || inherits(date, "IDate")) {
     date <- as.IDate(date)
   } else if (is.character(date)) {
-    date <- fast_as_idate(date, check = 0L)
+    date <- tryCatch(
+      fast_as_idate(date, check = 2L),
+      error = function(e) {
+        stop("Downloaded series contains missing or unparseable observations.",
+             call. = FALSE)
+      }
+    )
   } else {
     stop("Downloaded series contains an invalid `date` column.")
   }
@@ -268,4 +274,3 @@ grattanInflators_has_no_data <- function() {
     !length(dir(tools::R_user_dir("grattanInflators", which = "data"),
                 pattern = "\\.tsv$"))
 }
-

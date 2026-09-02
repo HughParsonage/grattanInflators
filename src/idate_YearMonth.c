@@ -500,7 +500,14 @@ SEXP C_guess_date_format(SEXP x) {
     }
     const char * xi = CHAR(xp[i]);
     if (starts_with_yyyy(xi, n)) {
-      return ScalarString(mkCharCE("%Y-%m-%d", CE_UTF8));
+      switch(xi[4]) {
+      case '/':
+        return ScalarString(mkCharCE("%Y/%m/%d", CE_UTF8));
+      case '.':
+        return ScalarString(mkCharCE("%Y.%m.%d", CE_UTF8));
+      default:
+        return ScalarString(mkCharCE("%Y-%m-%d", CE_UTF8));
+      }
     }
     if (gi_isalpha(xi[2])) {
       return ScalarString(mkCharCE("%d%b%Y", CE_UTF8));
