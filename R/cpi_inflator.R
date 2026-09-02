@@ -173,9 +173,6 @@ ensure_date <- function(x, fy_month = 3L, var = "x", check = 1L) {
     return(x)
   }
   if (inherits(x, "fy")) {
-    if (!isTRUE(fy_month %in% 1:12)) {
-      stop("`fy_month = ", fy_month, "` but must be an integer between 1 and 12.")
-    }
     ending_yr <- fy::fy2yr(x)
     # fy2yr() represents an unsupported label as NA. Detect that before the
     # original value is lost; supported-range checks on valid ending years are

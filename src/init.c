@@ -18,6 +18,7 @@ extern SEXP C_fastIDate(SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP C_format_idate(SEXP);
 extern SEXP C_guess_date_format(SEXP);
 extern SEXP C_minDate(SEXP);
+extern SEXP C_maxYearMonth(SEXP, SEXP);
 extern SEXP C_multiply(SEXP, SEXP, SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
@@ -31,6 +32,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"C_format_idate",      (DL_FUNC) &C_format_idate,       1},
     {"C_guess_date_format", (DL_FUNC) &C_guess_date_format,  1},
     {"C_minDate",           (DL_FUNC) &C_minDate,            1},
+    {"C_maxYearMonth",      (DL_FUNC) &C_maxYearMonth,       2},
     {"C_multiply",          (DL_FUNC) &C_multiply,           3},
     {NULL, NULL, 0}
 };

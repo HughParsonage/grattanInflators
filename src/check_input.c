@@ -144,9 +144,16 @@ static void check_valid_strings(unsigned int xpackminmax[2],
   unsigned int pack_min = 2044; // maximum packYearMonth value
   unsigned int pack_max = 0;
 
+  if (N == 0) {
+    xpackminmax[0] = pack_min;
+    xpackminmax[1] = pack_max;
+    return;
+  }
+
   // Extract CHARSXP data on the main thread, then validate bounded batches in
   // parallel without calling the R API from worker threads.
-  const R_xlen_t chunk_capacity = 1 << 20;
+  const R_xlen_t max_chunk = 1 << 20;
+  const R_xlen_t chunk_capacity = N < max_chunk ? N : max_chunk;
   const char ** strings = (const char **)R_alloc(chunk_capacity, sizeof(*strings));
   int * lengths = (int *)R_alloc(chunk_capacity, sizeof(*lengths));
   for (R_xlen_t base = 0; base < N; base += chunk_capacity) {
@@ -423,12 +430,12 @@ void check_intsxp(bool * any_beyond,
 // Is the series sufficient for the input? (Are the dates between the series?)
 //  -- if not need to signal extension
 SEXP C_check_input(SEXP x, SEXP Var, SEXP Check, SEXP Class, SEXP minDate, SEXP maxDate, SEXP nthreads, SEXP Fymonth) {
+  const int fy_month = as_fy_month(Fymonth);
   const int check = asInteger(Check);
   if (!check) {
     return ScalarLogical(0);
   }
 
-  const int fy_month = asInteger(Fymonth);
   const char * var = CHAR(STRING_ELT(Var, 0));
   int nThread = as_nThread(nthreads);
   int xclass = asInteger(Class);

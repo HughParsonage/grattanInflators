@@ -75,8 +75,8 @@ int string2month(const char * x) {
 
 // The grammar consumed here must be the grammar validated by err_string()
 // in check_input.c.
-static void string2YearMonth(YearMonth * ans,
-                             const char * x, int n, int fy_month) {
+void string2YearMonth(YearMonth * ans,
+                      const char * x, int n, int fy_month) {
   int yr = string2year(x);
   if (yr < 0) {
     *ans = YM_NA();

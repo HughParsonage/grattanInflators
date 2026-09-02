@@ -99,16 +99,38 @@ extdata_series_id <- function(series_id) {
 
 # Reads a two-column date/value TSV as downloaded from the ABS-Catalogue
 # mirror. Errors if the file is not a usable index.
-read_series_tsv <- function(path) {
+read_series_tsv <- function(path, strict = TRUE) {
   ans <- fread(path, sep = "\t")
   if (!hasName(ans, "date") || !hasName(ans, "value")) {
     stop("`", path, "` had columns ", toString(names(ans)),
          " but a series file must have columns `date` and `value`.")
   }
-  value <- NULL
-  ans[, value := as.double(value)]
-  ans <- ans[complete.cases(ans)]
-  ans[]
+  ans <- ans[, c("date", "value"), with = FALSE]
+  date <- .subset2(ans, "date")
+  if (inherits(date, "Date") || inherits(date, "IDate")) {
+    date <- as.IDate(date)
+  } else if (is.character(date)) {
+    date <- fast_as_idate(date, check = 0L)
+  } else {
+    stop("Downloaded series contains an invalid `date` column.")
+  }
+  value <- suppressWarnings(as.double(.subset2(ans, "value")))
+  if (anyNA(date)) {
+    stop("Downloaded series contains missing or unparseable observations.")
+  }
+  if (anyNA(value)) {
+    if (isTRUE(strict)) {
+      stop("Downloaded series contains missing or unparseable observations.")
+    }
+    present <- which(!is.na(value))
+    if (!length(present) || anyNA(value[present[1L]:present[length(present)]])) {
+      stop("Downloaded series contains missing or unparseable observations.")
+    }
+    keep <- present[1L]:present[length(present)]
+    date <- date[keep]
+    value <- value[keep]
+  }
+  data.table(date = date, value = value)
 }
 
 fread_extdata_series_id <- function(series_id) {
@@ -119,7 +141,18 @@ fread_extdata_series_id <- function(series_id) {
       return(data.table()) # nocov
     }
   }
-  read_series_tsv(extdata_series_id(series_id))
+  tryCatch(
+    # Older cache files can contain a rectangular calendar scaffold with
+    # unavailable leading/trailing values. Preserve compatibility with those
+    # files, but still reject malformed dates and any missing interior value.
+    read_series_tsv(extdata_series_id(series_id), strict = FALSE),
+    error = function(e) {
+      message("The cached file for series ", series_id,
+              " is not a valid index, so it will not be used.\n\t",
+              conditionMessage(e))
+      data.table()
+    }
+  )
 }
 
 file_splitter <- function(series_id) {
@@ -232,8 +265,5 @@ grattanInflators_has_no_data <- function() {
     !length(dir(tools::R_user_dir("grattanInflators", which = "data"),
                 pattern = "\\.tsv$"))
 }
-
-
-
 
 

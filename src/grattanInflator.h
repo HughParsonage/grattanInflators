@@ -15,6 +15,17 @@
 #include <stdint.h> // for uint64_t rather than unsigned long long, intptr
 #include <stdbool.h>
 #include <math.h>
+
+static inline int as_fy_month(SEXP x) {
+  if (XLENGTH(x) != 1 || (TYPEOF(x) != INTSXP && TYPEOF(x) != REALSXP)) {
+    error("`fy_month` must be one integer from 1 to 12.");
+  }
+  const double value = TYPEOF(x) == INTSXP ? INTEGER(x)[0] : REAL(x)[0];
+  if (!R_FINITE(value) || value != trunc(value) || value < 1 || value > 12) {
+    error("`fy_month` must be one integer from 1 to 12.");
+  }
+  return (int)value;
+}
 // #include <ctype.h>
 // prefer these range checks to ctype since isdigit requires cast to unsigned.
 // Named gi_* so that they do not conflict with the <ctype.h> builtins.
@@ -144,6 +155,7 @@ int as_nThread(SEXP x);
 
 // SEXP2YearMonth.c
 int string2year(const char * x);
+void string2YearMonth(YearMonth * ans, const char * x, int n, int fy_month);
 bool YM_valid(YearMonth YM);
 void SEXP2YearMonth(YearMonth * ansp,
                     SEXP x,

@@ -74,7 +74,13 @@ jobs:
       - name: Install packages
         shell: bash
         run: |
-          Rdevel -q -e "install.packages(c('data.table', 'fy', 'hutils', 'tinytest'))"
+          # This sanitizer image currently ships an older Rdevel without
+          # base::sort_by(), which current data.table imports. Keep this job
+          # usable until the image catches up by pinning the last compatible
+          # data.table release; the ordinary R CMD check still tests current
+          # CRAN dependencies.
+          Rdevel -q -e "install.packages('https://cran.r-project.org/src/contrib/Archive/data.table/data.table_1.17.8.tar.gz', repos = NULL, type = 'source')"
+          Rdevel -q -e "pkgs <- c('data.table', 'fy', 'hutils', 'tinytest'); install.packages(pkgs[-1L]); stopifnot(all(vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)))"
           Rdevel CMD build .
           Rdevel CMD INSTALL --install-tests ./*.tar.gz
       - name: Run tests under the sanitizers

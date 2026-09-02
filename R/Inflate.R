@@ -52,6 +52,7 @@ Inflate <- function(from, to,
                     fy_month = 3L,
                     check = 2L,
                     nThread = getOption("grattanInflators.nThread", 1L)) {
+  fy_month <- validate_fy_month(fy_month)
   if (is.null(from)) {
     from <- as.IDate(Sys.Date() - 365L - 180L) # nocov
   }
@@ -79,6 +80,9 @@ Inflate <- function(from, to,
   # This is validated unconditionally: it costs O(nrow(index)) on a table of a
   # few hundred rows, and every result depends on it.
   index_dates <- validate_index(index)
+  # Native calculation vectors are doubles. Accept ordinary integer-valued
+  # custom indices without modifying a caller-owned data.table by reference.
+  index_value <- as.double(.subset2(index, "value"))
   minDate <- index_dates[1L]
   maxDate <- index_dates[length(index_dates)]
 
@@ -99,8 +103,11 @@ Inflate <- function(from, to,
       } else {
         message("`from` or `to` had dates beyond the last date in the series (", as.character(maxDate), "), so projected values will be used.")
       }
-      index <- .prolong_ets(index)
+      until <- max(.requested_until(from, from_class, fy_month),
+                   .requested_until(to, to_class, fy_month))
+      index <- .prolong_ets(index, until = until)
       index_dates <- validate_index(index)
+      index_value <- as.double(.subset2(index, "value"))
       maxDate <- index_dates[length(index_dates)]
     }
   }
@@ -110,7 +117,7 @@ Inflate <- function(from, to,
     # all index and input validation, which is noticeable when the actual work
     # is a single factor followed by an in-place vector multiplication.
     r <- .Call("C_Inflate",
-               from, to, .subset2(index, "value"), minDate,
+               from, to, index_value, minDate,
                date2freq(index_dates), fy_month, NULL,
                from_class, to_class, 1L,
                PACKAGE = packageName())
@@ -120,9 +127,8 @@ Inflate <- function(from, to,
 
 
 
-  # Financial years must use the generic kernel. For an annual index it maps
-  # the resolved month relative to the index's anchor month; C_Inflate2 groups
-  # annual observations by calendar year only.
+  # Financial years retain their compact ending-year representation and use
+  # the generic kernel. Date/IDate inputs use the specialised native path.
   if (!from_was_fy && !to_was_fy &&
       inherits(from, "IDate") && inherits(to, "IDate") &&
       length(from) >= length(to)) {
@@ -131,7 +137,7 @@ Inflate <- function(from, to,
     }
     return(.Call("C_Inflate2",
                  x,
-                 from, to, .subset2(index, "value"),
+                 from, to, index_value,
                  minDate, date2freq(index_dates), nThread,
                  PACKAGE = packageName()))
   }
@@ -139,7 +145,7 @@ Inflate <- function(from, to,
   .Call("C_Inflate",
         from,
         to,
-        .subset2(index, "value"),
+        index_value,
         minDate,
         date2freq(index_dates),
         fy_month,
@@ -150,6 +156,47 @@ Inflate <- function(from, to,
         PACKAGE = packageName())
 
 
+}
+
+validate_fy_month <- function(fy_month) {
+  if (length(fy_month) != 1L || !is.numeric(fy_month) || is.na(fy_month) ||
+      !is.finite(fy_month) || fy_month != trunc(fy_month) ||
+      fy_month < 1L || fy_month > 12L) {
+    stop("`fy_month` must be one integer from 1 to 12.")
+  }
+  as.integer(fy_month)
+}
+
+# Return the latest requested month without allocating vectors proportional to
+# the input length. Character input is scanned and parsed in native code.
+.requested_until <- function(x, xclass, fy_month) {
+  if (!length(x)) {
+    return(MIN_DATE)
+  }
+  if (inherits(x, "IDate")) {
+    latest <- suppressWarnings(max(x, na.rm = TRUE))
+    return(if (is.finite(latest)) as.IDate(latest) else MIN_DATE)
+  }
+  if (is.integer(x)) {
+    yr <- suppressWarnings(max(x, na.rm = TRUE))
+    if (!is.finite(yr)) {
+      return(MIN_DATE)
+    }
+    mo <- 1L
+    if (xclass == CLASS_FY) {
+      yr <- yr - (fy_month >= 7L)
+      mo <- fy_month
+    }
+    return(as.IDate(sprintf("%04d-%02d-01", yr, mo)))
+  }
+  if (is.character(x)) {
+    ym <- .Call("C_maxYearMonth", x, fy_month, PACKAGE = packageName())
+    if (is.na(ym[1L])) {
+      return(MIN_DATE)
+    }
+    return(as.IDate(sprintf("%04d-%02d-01", ym[1L], ym[2L])))
+  }
+  MAX_DATE # nocov
 }
 
 # An index that is empty because the mirrored ABS data could not be downloaded
@@ -307,10 +354,30 @@ validate_x <- function(x, from, to) {
   rbind(index, data.table(date = new_dates, value = new_value))[date <= MAX_DATE]
 }
 
-.prolong_ets <- function(index, level = "mean") {
+.forecast_horizon <- function(index_dates, until) {
+  freq <- date2freq(index_dates)
+  period_months <- 12L %/% freq
+  last_ym <- 12L * year(last(index_dates)) + month(last(index_dates))
+  until_ym <- 12L * year(until) + month(until)
+  max(ceiling((until_ym - last_ym) / period_months), 0L)
+}
+
+.prolong_ets <- function(index, until = MAX_DATE, level = "mean") {
+  if (!inherits(until, "IDate") || length(until) != 1L || is.na(until) ||
+      until < MIN_DATE || until > MAX_DATE) {
+    stop("`until` must be one IDate between MIN_DATE and MAX_DATE.")
+  }
+  index_dates <- as.IDate(.subset2(index, "date"))
+  freq <- date2freq(index_dates)
+  period_months <- 12L %/% freq
+  until_ym <- 12L * year(until) + month(until)
+  h <- .forecast_horizon(index_dates, until)
+  if (h == 0L) {
+    return(index)
+  }
   if (!requireNamespace("fable", quietly = TRUE)) {
     message(".prolong_ets requires the fable package, so using simple average rate.")
-    return(.prolong_Index(index, MAX_DATE))
+    return(.prolong_Index(index, until))
   }
   o <- setDTthreads(1)
   # restore the thread count even if modelling or forecasting errors
@@ -318,7 +385,7 @@ validate_x <- function(x, from, to) {
   tsind <- fable::as_tsibble(copy(index)[, "ind" := .I], index = "ind", regular = TRUE)
   value <- NULL
   mab <- fabletools::model(tsind, value = fable::ETS(log(value)))
-  fab <- fabletools::forecast(mab, h = 700L) # 700 is more than the number required to 2075 for monthly data now
+  fab <- fabletools::forecast(mab, h = h)
   if (requireNamespace("distributional", quietly = TRUE) &&
       is.numeric(level) && length(level) == 1 && !is.na(level) && between(level, 0, 100)) {
     .level <-
@@ -336,13 +403,18 @@ validate_x <- function(x, from, to) {
     }
     new_value <- fab[[".mean"]]
   }
-  index_dates <- .subset2(index, "date")
   new_dates <-
     switch(as.character(date2freq(index_dates)),
            "1" = seq(last(index_dates), by = "1 year", length.out = length(new_value) + 1)[-1],
            "4" = seq(last(index_dates), by = "3 months", length.out = length(new_value) + 1)[-1],
            "12" = seq(last(index_dates), by = "1 month", length.out = length(new_value) + 1)[-1])
-  rbind(index, data.table(date = new_dates, value = new_value)[date <= last(all_dates())])
+  ans <- rbind(index, data.table(date = new_dates, value = new_value)[date <= MAX_DATE])
+  ans_dates <- .subset2(ans, "date")
+  covered_through <- 12L * year(last(ans_dates)) + month(last(ans_dates)) + period_months - 1L
+  if (covered_through < until_ym) {
+    stop("Forecast did not reach the requested endpoint.") # nocov
+  }
+  ans
 }
 
 .prolong_annual_r <- function(index, r) {

@@ -268,11 +268,8 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
 
   int from_class = asInteger(FromClass);
   int to_class = asInteger(ToClass);
-  int MonthFY = asInteger(FyMonth);
+  int MonthFY = as_fy_month(FyMonth);
   // # nocov start
-  if (MonthFY < 1 || MonthFY > 12) {
-    MonthFY = 3;
-  }
 
   if (!isReal(Index)) {
     error("Index was type '%s' and length-%lld, only REALSXP.",
