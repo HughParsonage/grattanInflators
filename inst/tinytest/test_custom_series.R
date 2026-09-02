@@ -92,6 +92,8 @@ expect_equal(v2[d2 == as.IDate("2034-12-01")], v2[d2 == as.IDate("2031-12-01")],
 
 expect_error(dr2index(IndexM, 2030), "r1 is missing")
 expect_equal(dr2index(IndexM), IndexM)
+expect_error(dr2index(IndexM, 2025.9, 0.05), "whole-valued year")
+expect_error(dr2index(IndexM, Inf, 0.05), "finite")
 
 # --- r2index ----------------------------------------------------------------
 # `next_date` used to be referenced before it was assigned here.

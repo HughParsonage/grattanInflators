@@ -170,6 +170,13 @@ ensure_date <- function(x, fy_month = 3L, var = "x", check = 1L) {
       stop("`fy_month = ", fy_month, "` but must be an integer between 1 and 12.")
     }
     yr <- fy::fy2yr(x) - (fy_month >= 7L)
+    bad_yr <- !is.na(yr) & (yr < 1948L | yr > 2075L)
+    if (check >= 1L && any(bad_yr)) {
+      i <- which(bad_yr)[1L]
+      stop("`", var, "[", i, "] = ", as.character(x[i]),
+           "` resolves to year ", yr[i],
+           ", but supported years are between 1948 and 2075.")
+    }
     out <- rep(NA_integer_, length(yr))
     class(out) <- c("IDate", "Date")
     ok <- !is.na(yr)

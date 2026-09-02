@@ -65,6 +65,29 @@ expect_true(is.double(ii("2022-23", "2010-01-01", index = IndexM, fy_month = 3L)
 expect_error(ii("2030-31", "2010-01-01", index = IndexM, fy_month = 3L), "later")
 expect_error(ii("2030-31", "2010-01-01", index = IndexM, fy_month = 9L), "later")
 
+# On an annual series not anchored in January, financial years must stay on
+# the anchor-aware generic path even when both arguments are scalar <fy>s.
+IndexA_Jun <- data.table(date = as.IDate(sprintf("%d-06-01", 2010:2020)),
+                         value = (1:11)^2)
+expect_equal(ii(fy::yr2fy(2016L), fy::yr2fy(2017L),
+                index = IndexA_Jun, fy_month = 3L),
+             ii("2015-16", "2016-17", index = IndexA_Jun, fy_month = 3L))
+fy_x <- c(2, 3)
+expect_equal(ii(fy::yr2fy(2016L), fy::yr2fy(2017L),
+                index = IndexA_Jun, fy_month = 3L, x = fy_x),
+             c(2, 3) * ii("2015-16", "2016-17",
+                          index = IndexA_Jun, fy_month = 3L))
+
+# Unsupported <fy> values are invalid inputs, not missing dates.
+expect_error(ii(fy::yr2fy(2090L), fy::yr2fy(2017L),
+                index = IndexA_Jun, fy_month = 3L, check = 1L),
+             "supported years")
+expect_error(ii(fy::yr2fy(2090L), fy::yr2fy(2017L),
+                index = IndexA_Jun, fy_month = 3L, check = 2L),
+             "supported years")
+expect_true(is.nan(ii(fy::yr2fy(2090L), fy::yr2fy(2017L),
+                      index = IndexA_Jun, fy_month = 3L, check = 0L)))
+
 # --- quarters ---------------------------------------------------------------
 # A quarter is the last month of that quarter, and the checker agrees.
 for (q in 1:4) {

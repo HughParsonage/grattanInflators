@@ -63,6 +63,8 @@ Inflate <- function(from, to,
   to_vname <- varname(to, "to")
 
   prohibit_vector_recycling(from, to)
+  from_was_fy <- inherits(from, "fy")
+  to_was_fy <- inherits(to, "fy")
   from_class <- supported_classes(class(from))
   to_class <- supported_classes(class(to))
   from <- ensure_date(from, fy_month = fy_month, var = from_vname, check = check)
@@ -105,14 +107,29 @@ Inflate <- function(from, to,
   }
 
   if (is.double(x) && length(from) == 1L && length(to) == 1L) {
-    r <- Inflate(from, to, index, fy_month = fy_month, check = check, nThread = 1L)
+    if (from_was_fy || to_was_fy) {
+      # Recursing with the converted IDates would lose the fact that these
+      # values originated as financial years and select C_Inflate2.
+      r <- .Call("C_Inflate",
+                 from, to, .subset2(index, "value"), minDate,
+                 date2freq(index_dates), fy_month, NULL,
+                 from_class, to_class, 1L,
+                 PACKAGE = packageName())
+    } else {
+      r <- Inflate(from, to, index, fy_month = fy_month, check = check, nThread = 1L)
+    }
     .Call("C_multiply", x, r, nThread, PACKAGE = packageName())
     return(x)
   }
 
 
 
-  if (inherits(from, "IDate") && inherits(to, "IDate") && length(from) >= length(to)) {
+  # Financial years must use the generic kernel. For an annual index it maps
+  # the resolved month relative to the index's anchor month; C_Inflate2 groups
+  # annual observations by calendar year only.
+  if (!from_was_fy && !to_was_fy &&
+      inherits(from, "IDate") && inherits(to, "IDate") &&
+      length(from) >= length(to)) {
     if (is.null(x)) {
       x <- rep(1, length(from))
     }

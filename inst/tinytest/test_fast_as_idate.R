@@ -21,3 +21,16 @@ expect_equal(as_IDate_x, fast_as_idate(cj_dates$dmy, format = "%d/%m/%Y"))
 expect_equal(as_IDate_x, fast_as_idate(cj_dates$ddmy, format = "%d/%m/%Y"))
 expect_equal(as_IDate_x, fast_as_idate(cj_dates$dmmy, format = "%d/%m/%Y"))
 
+# Non-default formats honour the same checking contract as the default. In
+# particular, strict checking rejects calendar days that would otherwise roll
+# into the next month, and abbreviated month names must match all three letters.
+expect_error(fast_as_idate("31/02/2024", format = "%d/%m/%Y", check = 2L),
+             "could not be parsed")
+expect_error(fast_as_idate("29/02/2023", format = "%d/%m/%Y", check = 2L),
+             "could not be parsed")
+expect_equal(fast_as_idate("29/02/2024", format = "%d/%m/%Y", check = 2L),
+             as.IDate("2024-02-29"))
+expect_error(fast_as_idate("01Fxx2024", format = "%d%b%Y", check = 1L),
+             "could not be parsed")
+expect_equal(fast_as_idate(c("01Feb2024", "01fEB2024"), format = "%d%b%Y", check = 1L),
+             as.IDate(c("2024-02-01", "2024-02-01")))

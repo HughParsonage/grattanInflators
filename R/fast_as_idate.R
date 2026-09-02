@@ -40,7 +40,8 @@ fast_as_idate <- function(x, incl_day = TRUE, check = 0L, nThread = 1L, format =
                  # "character"
                  xclass = 5L)
   }
-  o <- .Call("C_fastIDate", x, incl_day, format, nThread, PACKAGE = packageName())
+  o <- .Call("C_fastIDate", x, incl_day, check, format, nThread,
+             PACKAGE = packageName())
   if (check >= 1L) {
     # every format gets the same contract: an unparseable element is an error
     bad <- which(is.na(o) & !is.na(x))

@@ -359,46 +359,48 @@ static bool parse_dmy(const char * xi, int n, int * year, int * month, int * mda
   return true;
 }
 
+static char ascii_tolower(char x) {
+  return (x >= 'A' && x <= 'Z') ? x + ('a' - 'A') : x;
+}
+
+static bool month_is(const char * x, const char * month) {
+  return ascii_tolower(x[0]) == month[0] &&
+    ascii_tolower(x[1]) == month[1] &&
+    ascii_tolower(x[2]) == month[2];
+}
+
+// Parse an English abbreviated month only when all three letters match. The
+// old first-letter dispatch interpreted malformed tokens such as "Fxx" as
+// February and returned a plausible date.
+static int parse_month_abbrev(const char * x) {
+  static const char * MONTHS[12] = {
+    "jan", "feb", "mar", "apr", "may", "jun",
+    "jul", "aug", "sep", "oct", "nov", "dec"
+  };
+  for (int i = 0; i < 12; ++i) {
+    if (month_is(x, MONTHS[i])) {
+      return i + 1;
+    }
+  }
+  return -1;
+}
+
+static bool valid_calendar_mday(int year, int month, int mday) {
+  static const int MDAYS[12] = {
+    31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
+  };
+  int max_mday = MDAYS[month - 1];
+  bool leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+  if (month == 2 && leap) {
+    ++max_mday;
+  }
+  return mday <= max_mday;
+}
+
 // xi must have nchar 9
 static void ddbbyyyy2YearMonth(int * year, int * month, const char * xi) {
   *year = read_digits(xi, 5, 4);
-  *month = -1;
-
-  switch(xi[2]) {
-  case 'J':
-    switch(xi[3]) {
-    case 'A':
-    case 'a':
-      *month = 1;
-      return;
-    case 'u':
-    case 'U':
-      *month = 6 + (xi[4] == 'l' || xi[4] == 'L');
-      return;
-    }
-    break;
-  case 'F':
-    *month = 2;
-    return;
-  case 'M':
-    *month = (xi[4] == 'r' || xi[4] == 'R') ? 3 : 5;
-    return;
-  case 'A':
-    *month = (xi[3] == 'p' || xi[3] == 'P') ? 4 : 8;
-    return;
-  case 'S':
-    *month = 9;
-    return;
-  case 'O':
-    *month = 10;
-    return;
-  case 'N':
-    *month = 11;
-    return;
-  case 'D':
-    *month = 12;
-    return;
-  }
+  *month = parse_month_abbrev(xi + 2);
 }
 
 // Guess format
@@ -442,12 +444,13 @@ SEXP C_guess_date_format(SEXP x) {
 }
 
 // ignores mday by default
-SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP Format, SEXP nthreads) {
+SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP Check, SEXP Format, SEXP nthreads) {
   int nThread = as_nThread(nthreads);
   if (!isString(x)) {
     error("Expected a STRSXP."); // # nocov
   }
   const bool incl_day = asLogical(IncludeDay);
+  const bool check_calendar_day = asInteger(Check) >= 2;
   dateformat format = encode_format(Format);
   const SEXP * xp = STRING_PTR_RO(x);
   R_xlen_t N = xlength(x);
@@ -470,8 +473,10 @@ SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP Format, SEXP nthreads) {
       }
       int year_i = string102year(xi);
       int month_i = string102month(xi);
-      int mday_i = incl_day ? read_digits(xi, 8, 2) : 1;
-      if (!VALID_YMD(year_i, month_i, mday_i)) {
+      int parsed_mday = (incl_day || check_calendar_day) ? read_digits(xi, 8, 2) : 1;
+      int mday_i = incl_day ? parsed_mday : 1;
+      if (!VALID_YMD(year_i, month_i, parsed_mday) ||
+          (check_calendar_day && !valid_calendar_mday(year_i, month_i, parsed_mday))) {
         continue;
       }
       ansp[i] = ARR[12 * (year_i - MIN_YEAR) + (month_i - 1)] + mday_i - 1;
@@ -490,14 +495,14 @@ SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP Format, SEXP nthreads) {
       }
       int year_i = -1;
       int month_i = -1;
-      int mday_i = -1;
-      if (!parse_dmy(xi, n, &year_i, &month_i, &mday_i)) {
+      int parsed_mday = -1;
+      if (!parse_dmy(xi, n, &year_i, &month_i, &parsed_mday)) {
         continue;
       }
-      if (!incl_day) {
-        mday_i = 1;
-      }
-      if (!VALID_YMD(year_i, month_i, mday_i)) {
+      int validated_mday = (incl_day || check_calendar_day) ? parsed_mday : 1;
+      int mday_i = incl_day ? parsed_mday : 1;
+      if (!VALID_YMD(year_i, month_i, validated_mday) ||
+          (check_calendar_day && !valid_calendar_mday(year_i, month_i, parsed_mday))) {
         continue;
       }
       ansp[i] = ARR[12 * (year_i - MIN_YEAR) + (month_i - 1)] + mday_i - 1;
@@ -517,8 +522,10 @@ SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP Format, SEXP nthreads) {
       int year_i = -1;
       int month_i = -1;
       ddbbyyyy2YearMonth(&year_i, &month_i, xi);
-      int mday_i = incl_day ? read_digits(xi, 0, 2) : 1;
-      if (!VALID_YMD(year_i, month_i, mday_i)) {
+      int parsed_mday = (incl_day || check_calendar_day) ? read_digits(xi, 0, 2) : 1;
+      int mday_i = incl_day ? parsed_mday : 1;
+      if (!VALID_YMD(year_i, month_i, parsed_mday) ||
+          (check_calendar_day && !valid_calendar_mday(year_i, month_i, parsed_mday))) {
         continue;
       }
       ansp[i] = ARR[12 * (year_i - MIN_YEAR) + (month_i - 1)] + mday_i - 1;
@@ -591,8 +598,6 @@ int yqi(YearMonth YM) {
   i += MONTH_TO_QUARTER[YM.month];
   return i;
 }
-
-
 
 
 

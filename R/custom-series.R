@@ -51,9 +51,13 @@ dr2index <- function(index, d1, r1, ...) {
   if (fy::is_fy(d1)) {
     d_1 <- fy::fy2date(d1)
     d_0 <- fy::fy2date(fy::prev_fy(d1))
-  } else if (is.numeric(d1)) {
-    d_1 <- as.IDate(sprintf("%d-12-31", as.integer(d1)))
-    d_0 <- as.IDate(sprintf("%d-12-31", as.integer(d1) - 1L))
+  } else if (is.numeric(d1) && !inherits(d1, "Date")) {
+    if (length(d1) != 1L || !is.finite(d1) || d1 != trunc(d1)) {
+      stop("Numeric `d1` must be a single, finite, whole-valued year.")
+    }
+    d1 <- as.integer(d1)
+    d_1 <- as.IDate(sprintf("%d-12-31", d1))
+    d_0 <- as.IDate(sprintf("%d-12-31", d1 - 1L))
   } else {
     d_1 <- ensure_date(d1)
 
