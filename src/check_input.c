@@ -180,7 +180,6 @@ static void check_valid_strings(unsigned int xpackminmax[2],
           }
         }
       }
-      R_CheckUserInterrupt();
       continue;
     }
     SEXP previous = R_NilValue;
@@ -234,7 +233,6 @@ static void check_valid_strings(unsigned int xpackminmax[2],
     if (chunk_max > pack_max) {
       pack_max = chunk_max;
     }
-    R_CheckUserInterrupt();
   }
 
   xpackminmax[0] = pack_min;

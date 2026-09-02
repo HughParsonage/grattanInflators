@@ -227,7 +227,6 @@ void SEXP2YearMonth(YearMonth * ansp,
       for (R_xlen_t j = 0; j < chunk_n; ++j) {
         ansp[base + j] = value;
       }
-      R_CheckUserInterrupt();
       continue;
     }
 
@@ -275,6 +274,5 @@ void SEXP2YearMonth(YearMonth * ansp,
       int id = string_ids[j];
       ansp[base + j] = id < 0 ? YM_NA() : parsed[id];
     }
-    R_CheckUserInterrupt();
   }
 }

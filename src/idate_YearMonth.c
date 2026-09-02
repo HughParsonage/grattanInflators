@@ -574,7 +574,6 @@ SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP Check, SEXP Format, SEXP nthreads
         invalid_date_error(base, string, string_length, format,
                            CHAR(STRING_ELT(Format, 0)));
       }
-      R_CheckUserInterrupt();
       continue;
     }
     for (unsigned int k = 0; k < cache_capacity; ++k) {
@@ -640,7 +639,6 @@ SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP Check, SEXP Format, SEXP nthreads
         }
       }
     }
-    R_CheckUserInterrupt();
   }
   UNPROTECT(1);
   return ans;
