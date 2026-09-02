@@ -16,8 +16,21 @@ SEXP C_Inflate2(SEXP ans, SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SE
     return R_NilValue; // # nocov
   }
   R_xlen_t N = N_x;
+  // `ans` is the user's `x`, written to in place. Its type and length must be
+  // established here, not merely by the R wrapper: this is an exported native
+  // entry point and writing past the end of `x` would corrupt memory.
+  if (!isReal(ans)) {
+    error("`x` was type '%s' but must be a double vector.", type2char(TYPEOF(ans)));
+  }
+  if (XLENGTH(ans) != N) {
+    error("`length(x) = %lld` but `%lld` values are required (the length of `from`).",
+          (long long)XLENGTH(ans), (long long)N);
+  }
   if (!isReal(Index)) {
     error("Index was type '%s' REALSXP which is not supported.", type2char(TYPEOF(Index))); // # nocov
+  }
+  if (xlength(Index) == 0) {
+    error("`index` had zero values, so no inflator can be computed."); // # nocov
   }
   const double * index = REAL(Index);
   const unsigned int index_len = length(Index);
@@ -211,7 +224,11 @@ SEXP C_coalesce_forecast_12mo_avg(SEXP ans, SEXP From, SEXP To, SEXP Index, SEXP
             YM_from.year = ypi - MIN_YEAR;
             YM_from.month = 1;
 
-            double index_from = index[yqi(YM_from) - yqi(index_min_YM)];
+            int index_from_i = yqi(YM_from) - yqi(index_min_YM);
+            if (IDX_OOB(index_from_i, (R_xlen_t)index_len)) {
+              continue;
+            }
+            double index_from = index[index_from_i];
             ansp[i] = last_index / index_from; // provisionally
             int d_years = (ypi - index_max_yr);
             ansp[i] *= pow(r_future, d_years);

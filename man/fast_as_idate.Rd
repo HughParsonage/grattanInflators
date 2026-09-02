@@ -20,11 +20,15 @@ when the day component does not matter (or is constantly -01); the day component
 in the output will be -01.}
 
 \item{check}{\code{integer: 0, 1, or 2} Level of check to perform. 0 for no
-checks.}
+checks; 1 errors on any element that cannot be parsed; 2 additionally
+rejects impossible days of the month (such as 30 February).}
 
 \item{nThread}{Number of threads to use.}
 
-\item{format}{The expected format of the input.}
+\item{format}{The expected format of the input: one of \code{"\%Y-\%m-\%d"},
+\code{"\%d/\%m/\%Y"}, \code{"\%d-\%m-\%Y"} or \code{"\%d\%b\%Y"}. An
+unrecognised format is an error rather than being reinterpreted as another.
+\code{guess_format()} returns a format that this function accepts.}
 }
 \value{
 A vector of class \code{IDate}, \code{Date} the same length as \code{x}.

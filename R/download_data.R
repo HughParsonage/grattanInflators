@@ -21,7 +21,10 @@
 #' \item{\code{download_data}}{Called for its side-effect, downloading the
 #' data required. Returns an integer vector of the statuses of each download.}
 #' \item{\code{when_last_updated}}{The date the downloaded data was last retrieved, or
-#' the string \code{"Never"} if the file does not exist.}
+#' the string \code{"Never"} if the file does not exist. Note that this is the
+#' date of \emph{retrieval}, not the ABS release the data came from: the mirror
+#' tracks the ABS, so two sessions running the same package version at
+#' different times may see different index histories.}
 #' \item{\code{grattanInflators_has_no_data}}{\code{TRUE} if no data has ever been
 #' received (or package directory removed); likely due to no internet connection.}
 #' }
@@ -94,6 +97,20 @@ extdata_series_id <- function(series_id) {
   out
 }
 
+# Reads a two-column date/value TSV as downloaded from the ABS-Catalogue
+# mirror. Errors if the file is not a usable index.
+read_series_tsv <- function(path) {
+  ans <- fread(path, sep = "\t")
+  if (!hasName(ans, "date") || !hasName(ans, "value")) {
+    stop("`", path, "` had columns ", toString(names(ans)),
+         " but a series file must have columns `date` and `value`.")
+  }
+  value <- NULL
+  ans[, value := as.double(value)]
+  ans <- ans[complete.cases(ans)]
+  ans[]
+}
+
 fread_extdata_series_id <- function(series_id) {
   if (!file.exists(extdata_series_id(series_id)) || !file.size(extdata_series_id(series_id))) {
     res <- download_data(series_id) # nocov
@@ -102,12 +119,7 @@ fread_extdata_series_id <- function(series_id) {
       return(data.table()) # nocov
     }
   }
-  ans <- fread(extdata_series_id(series_id), sep = "\t")
-  stopifnot(hasName(ans, "date"))
-  stopifnot(hasName(ans, "value"))
-  value <- NULL
-  ans[, value := as.double(value)]
-  ans[complete.cases(ans)]
+  read_series_tsv(extdata_series_id(series_id))
 }
 
 file_splitter <- function(series_id) {
@@ -141,7 +153,14 @@ download_data <- function(series_id = NULL) {
       if (!nzchar(sid)) {
         return(NA_integer_)
       }
-      tempf <- tempfile(fileext = ".tsv")
+      destfile <- extdata_series_id(sid)
+      # Download into the destination directory so that the final move is a
+      # same-filesystem rename, i.e. atomic: a half-written or invalid file
+      # must never become the cache.
+      tempf <- tempfile(pattern = paste0(sid, "-"),
+                        tmpdir = dirname(destfile),
+                        fileext = ".tsv.tmp")
+      on.exit(unlink(tempf), add = TRUE)
       sid_url <- find_hughparsonage_abs_catalogue(sid)
       status <- tryCatch(download.file(sid_url, tempf, mode = "wb", quiet = TRUE),
                          error = function(e) {
@@ -157,17 +176,33 @@ download_data <- function(series_id = NULL) {
 
       # nocov start
       if (status) {
-        return(status)
+        return(as.integer(status))
       }
-      copy_status <- file.copy(tempf, extdata_series_id(sid), overwrite = TRUE)
-      file.remove(tempf)
-      if (!copy_status) {
+      # Validate the whole file before it is allowed to replace a usable cache.
+      bad <- tryCatch({
+        validate_index(read_series_tsv(tempf), var = sid)
+        NULL
+      }, error = function(e) conditionMessage(e))
+      if (!is.null(bad)) {
+        message("The file downloaded for series ", sid,
+                " is not a valid index, so the existing data has been kept.\n\t", bad)
+        return(4L)
+      }
+      # keep the previous version, so a bad replacement can be undone
+      if (file.exists(destfile)) {
+        file.copy(destfile, paste0(destfile, ".bak"), overwrite = TRUE)
+      }
+      if (!file.rename(tempf, destfile) &&
+          !file.copy(tempf, destfile, overwrite = TRUE)) {
         message("File rename did not succeed", ".\n\t",
                 "downloaded file: ", tempf, "\n\t",
-                "intended destfile: ", extdata_series_id(sid))
-        status <- 3L
+                "intended destfile: ", destfile)
+        return(3L)
       }
-      return(as.integer(status))
+      # The disk file has changed, so any copy already loaded in this session
+      # is stale and must not be used again.
+      RM_SERIES(sid)
+      return(0L)
       # nocov end
     })
   if (!sum(ans, na.rm = TRUE)) {

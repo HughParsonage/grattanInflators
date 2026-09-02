@@ -16,14 +16,20 @@
 #include <stdbool.h>
 #include <math.h>
 // #include <ctype.h>
-// prefer these range checks to ctype since isdigit requires cast to unsigned
-static inline bool isdigit(char c) {
+// prefer these range checks to ctype since isdigit requires cast to unsigned.
+// Named gi_* so that they do not conflict with the <ctype.h> builtins.
+static inline bool gi_isdigit(char c) {
   return (unsigned)(c - '0') < 10u;
 }
 
-static inline bool isalpha(char c) {
+static inline bool gi_isalpha(char c) {
   return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
 
+}
+
+// Characters permitted between the components of a date
+static inline bool gi_issep(char c) {
+  return c == '-' || c == '/' || c == '.';
 }
 
 #if defined _OPENMP && _OPENMP >= 201511
@@ -41,6 +47,19 @@ for (R_xlen_t i = 0; i < N; ++i) {                                  \
 }                                                                   \
 } while (0);
 #endif
+
+// Loops that touch the R API (CHAR(), length() on a CHARSXP, ...) must not be
+// parallelised: most of the R API is not thread-safe. See WRE 1.2.1.1.
+#define FORLOOP_SERIAL(content) do {                                \
+for (R_xlen_t i = 0; i < N; ++i) {                                  \
+  content;                                                          \
+}                                                                   \
+} while (0);
+
+// Guard for any index derived from a date offset before it reaches an
+// R vector.  The cast makes a negative offset a very large unsigned value,
+// so a single comparison catches both ends.
+#define IDX_OOB(i_, n_) ((uint64_t)(int64_t)(i_) >= (uint64_t)(n_))
 
 
 
@@ -98,7 +117,7 @@ typedef struct {
 int string2month(const char * x);
 
 // check_input
-bool starts_with_yyyy(const char * x);
+bool starts_with_yyyy(const char * x, int n);
 
 // YearMonth
 YearMonth YM_NA(void);
@@ -125,6 +144,7 @@ int as_nThread(SEXP x);
 
 // SEXP2YearMonth.c
 int string2year(const char * x);
+bool YM_valid(YearMonth YM);
 void SEXP2YearMonth(YearMonth * ansp,
                     SEXP x,
                     int x_class,

@@ -4,9 +4,13 @@
 #' when the day component does not matter (or is constantly -01); the day component
 #' in the output will be -01.
 #' @param check \code{integer: 0, 1, or 2} Level of check to perform. 0 for no
-#' checks.
+#' checks; 1 errors on any element that cannot be parsed; 2 additionally
+#' rejects impossible days of the month (such as 30 February).
 #' @param nThread Number of threads to use.
-#' @param format The expected format of the input.
+#' @param format The expected format of the input: one of \code{"\%Y-\%m-\%d"},
+#' \code{"\%d/\%m/\%Y"}, \code{"\%d-\%m-\%Y"} or \code{"\%d\%b\%Y"}. An
+#' unrecognised format is an error rather than being reinterpreted as another.
+#' \code{guess_format()} returns a format that this function accepts.
 #'
 #' @examples
 #' # For ABS data, we only need to care (and check)
@@ -26,10 +30,25 @@
 #' @export
 
 fast_as_idate <- function(x, incl_day = TRUE, check = 0L, nThread = 1L, format = "%Y-%m-%d") {
-  .check_input(x, as.IDate("1948-01-01"), as.IDate("2075-12-31"), check = check, nThread = nThread,
-               # "character"
-               xclass = 5L)
+  if (!is.character(x)) {
+    stop("`x` was of class <", toString(class(x)), "> but must be a character vector.")
+  }
+  # .check_input validates the year-first grammar only, so it must not be
+  # applied to a day-first or month-name format.
+  if (check >= 1L && identical(format, "%Y-%m-%d")) {
+    .check_input(x, MIN_DATE, MAX_DATE, check = check, nThread = nThread,
+                 # "character"
+                 xclass = 5L)
+  }
   o <- .Call("C_fastIDate", x, incl_day, format, nThread, PACKAGE = packageName())
+  if (check >= 1L) {
+    # every format gets the same contract: an unparseable element is an error
+    bad <- which(is.na(o) & !is.na(x))
+    if (length(bad)) {
+      stop("`x[", bad[1L], "] = ", x[bad[1L]],
+           "` could not be parsed as a date in format \"", format, "\".")
+    }
+  }
   class(o) <- c("IDate", "Date")
   o
 }

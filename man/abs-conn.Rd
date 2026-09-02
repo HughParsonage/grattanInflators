@@ -35,7 +35,10 @@ by `broad_cat` and `adjustment`}
 \item{\code{download_data}}{Called for its side-effect, downloading the
 data required. Returns an integer vector of the statuses of each download.}
 \item{\code{when_last_updated}}{The date the downloaded data was last retrieved, or
-the string \code{"Never"} if the file does not exist.}
+the string \code{"Never"} if the file does not exist. Note that this is the
+date of \emph{retrieval}, not the ABS release the data came from: the mirror
+tracks the ABS, so two sessions running the same package version at
+different times may see different index histories.}
 \item{\code{grattanInflators_has_no_data}}{\code{TRUE} if no data has ever been
 received (or package directory removed); likely due to no internet connection.}
 }

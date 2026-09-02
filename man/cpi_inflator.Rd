@@ -46,8 +46,11 @@ financial years, the month is the month of the financial year,
 so for example \code{fy_month = 9} and "2015-16" means Sep-2015,
 while \code{fy_month = 6} means Jun-2016.}
 
-\item{x}{(Advanced) A vector that will be inflated in-place. If \code{NULL},
-the default, the return vector is simply the inflation factor for `from`.}
+\item{x}{(Advanced) A double vector that will be inflated in-place. If
+\code{NULL}, the default, the return vector is simply the inflation factor
+for `from`. Since `x` is modified in place, any other name bound to the same
+object is modified too; an integer `x` is coerced to double, which copies, so
+in that case use the return value.}
 
 \item{check}{\code{integer(1)} If \code{0L}, no checks are performed, and
 clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
@@ -79,14 +82,11 @@ cpi_inflator(1995, 2019)  # Inflation from 1995 to 2019
 cpi_inflator("2015-16", "2016-17")
 cpi_inflator("2015-01-01", "2016-01-01")
 
-if (Sys.Date() < as.Date("2029-01-01")) {
-  cpi_inflator("2030-01-01", "2031-01-01",
-               series = cpi_original(2030, 0.1))
-  cpi_inflator("2030-01-01", "2031-01-01",
-               series = cpi_original(0.1))
-  cpi_inflator("2030-01-01", "2032-01-01",
-               series = cpi_original(2030, 0.1, 2031, 0.1, 2032, 0))
-}
+# A custom series, holding CPI growth at 10\% a year from 2030
+cpi_inflator("2030-01-01", "2031-01-01", series = cpi_original(2030, 0.1))
+cpi_inflator("2030-01-01", "2031-01-01", series = cpi_original("10\%"))
+cpi_inflator("2030-01-01", "2032-01-01",
+             series = cpi_original(2030, 0.1, 2031, 0.1, 2032, 0))
 
 
 }

@@ -73,6 +73,13 @@ SEXP C_all_dates(SEXP x) {
 }
 
 void iminmax(int xminmax[2], const int * xp, R_xlen_t N, const int fy_month, int nThread) {
+  if (N <= 0) {
+    // An empty input has no minimum or maximum; these sentinels compare as
+    // "inside any range" so that callers report no violation.
+    xminmax[0] = INT_MAX;
+    xminmax[1] = INT_MIN;
+    return;
+  }
   int xmin = xp[0];
   int xmax = xp[0];
   if (xmin == NA_INTEGER) {

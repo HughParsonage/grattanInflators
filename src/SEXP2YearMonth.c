@@ -7,13 +7,27 @@ YearMonth YM_NA(void) {
   return O;
 }
 
+bool YM_valid(YearMonth YM) {
+  return YM.month >= 1 && YM.month <= 12;
+}
+
+// Returns the year as an offset from MIN_YEAR, or a negative value if the
+// first four characters are not a year in [MIN_YEAR, MAX_YEAR].
+// The caller must have established that x has at least four characters.
 int string2year(const char * x) {
-  // no check on whether string length is adequate, or starts with digits
-  int year = 0;
-  year += (x[1] == '9') ? 1900 : 2000;
-  year += 10 * (x[2] - '0');
-  year += x[3] - '0';
-  return year - 1948;
+  if (!gi_isdigit(x[0]) || !gi_isdigit(x[1]) ||
+      !gi_isdigit(x[2]) || !gi_isdigit(x[3])) {
+    return -1;
+  }
+  int year =
+    1000 * (x[0] - '0') +
+     100 * (x[1] - '0') +
+      10 * (x[2] - '0') +
+            (x[3] - '0');
+  if (year < MIN_YEAR || year > MAX_YEAR) {
+    return -1;
+  }
+  return year - MIN_YEAR;
 }
 
 int string2month(const char * x) {
@@ -59,36 +73,52 @@ int string2month(const char * x) {
   return 15; // # nocov
 }
 
+// The grammar consumed here must be the grammar validated by err_string()
+// in check_input.c.
 static void string2YearMonth(YearMonth * ans,
                              const char * x, int n, int fy_month) {
-  ans->year = string2year(x);
-  ans->month = 3;
+  int yr = string2year(x);
+  if (yr < 0) {
+    *ans = YM_NA();
+    return;
+  }
+  ans->year = yr;
+  ans->month = 15;
   switch(n) {
   case 10:
-    ans->month = string2month(x);
+    {
+      int month = string2month(x);
+      ans->month = (month >= 1 && month <= 12) ? month : 15;
+    }
     break;
   case 7:
-    if (isdigit(x[5])) {
-      // is fy
+    if (gi_isdigit(x[5])) {
+      // is fy: Jul-Dec fall in the first calendar year of the label,
+      // Jan-Jun in the second.
       ans->year += (fy_month < 7);
       ans->month = fy_month;
     } else {
+      // Quarters are dated by the last month of the quarter, matching the
+      // ABS convention and err_string().
       switch(x[6]) {
       case '1':
-        ans->month = 2;
+        ans->month = 3;
         break;
       case '2':
-        ans->month = 5;
+        ans->month = 6;
         break;
       case '3':
-        ans->month = 8;
+        ans->month = 9;
         break;
       case '4':
-        ans->month = 11;
+        ans->month = 12;
         break;
       }
     }
     break;
+  }
+  if (!YM_valid(*ans)) {
+    *ans = YM_NA();
   }
 }
 
@@ -106,13 +136,20 @@ void SEXP2YearMonth(YearMonth * ansp,
     const int * xp = INTEGER(x);
     switch(x_class) {
     case CLASS_FY:
+      // xp[i] is the ending year of the financial year (as fy::fy2yr gives),
+      // so a Jul-Dec fy_month falls in the preceding calendar year.
       FORLOOP({
         if (xp[i] == NA_INTEGER) {
           ansp[i] = YM_NA();
           continue;
         }
+        int yr = xp[i] - (fy_month >= 7) - MIN_YEAR;
+        if (yr < 0 || yr > 127) {
+          ansp[i] = YM_NA();
+          continue;
+        }
         YearMonth O;
-        O.year = xp[i] - MIN_YEAR;
+        O.year = yr;
         O.month = fy_month;
         ansp[i] = O;
       })
@@ -120,7 +157,8 @@ void SEXP2YearMonth(YearMonth * ansp,
     case CLASS_Date:
     case CLASS_IDate:
         FORLOOP({
-          ansp[i] = xp[i] == NA_INTEGER ? YM_NA() : idate2YearMonth(xp[i]);
+          ansp[i] = (xp[i] == NA_INTEGER || xp[i] < MIN_IDATE || xp[i] > MAX_IDATE) ?
+            YM_NA() : idate2YearMonth(xp[i]);
         })
       break;
     default:
@@ -129,8 +167,13 @@ void SEXP2YearMonth(YearMonth * ansp,
           ansp[i] = YM_NA();
           continue;
         }
+        int yr = xp[i] - MIN_YEAR;
+        if (yr < 0 || yr > 127) {
+          ansp[i] = YM_NA();
+          continue;
+        }
         YearMonth O;
-        O.year = xp[i] - MIN_YEAR;
+        O.year = yr;
         O.month = 1;
         ansp[i] = O;
       })
@@ -140,14 +183,20 @@ void SEXP2YearMonth(YearMonth * ansp,
   }
   const SEXP * xp = STRING_PTR_RO(x);
 
-  FORLOOP({
+  // NOT parallelised: CHAR() and length() are R API calls, which are not
+  // thread-safe.
+  FORLOOP_SERIAL({
+    if (xp[i] == NA_STRING) {
+      ansp[i] = YM_NA();
+      continue;
+    }
     int n = length(xp[i]);
     if (n != 10 && n != 7) {
       ansp[i] = YM_NA();
       continue;
     }
     YearMonth O;
-    string2YearMonth(&O, CHAR(xp[i]), length(xp[i]), fy_month);
+    string2YearMonth(&O, CHAR(xp[i]), n, fy_month);
     ansp[i] = O;
   })
 }

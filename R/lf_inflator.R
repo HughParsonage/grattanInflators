@@ -17,8 +17,11 @@
 #' (`LEVEL = 20` means the lower end of an 80\% prediction interval.) If `LEVEL = "mean"`
 #' (the default), the central estimate is used.
 #'
-#' @param x (Advanced) A vector that will be inflated in-place. If \code{NULL},
-#' the default, the return vector is simply the inflation factor for `from`.
+#' @param x (Advanced) A double vector that will be inflated in-place. If
+#' \code{NULL}, the default, the return vector is simply the inflation factor
+#' for `from`. Since `x` is modified in place, any other name bound to the same
+#' object is modified too; an integer `x` is coerced to double, which copies, so
+#' in that case use the return value.
 #'
 #' @param nThread Number of threads to use.
 #'
@@ -42,6 +45,10 @@ lf_inflator <- function(from = NULL, to = NULL,
                         fy_month = 3L,
                         x = NULL,
                         nThread = getOption("grattanInflators.nThread", 1L)) {
+  if (no_series_data(series)) {
+    return(NULL) # nocov
+  }
+
   sys_call <- deparse(sys.call())
   ans <- NULL
   withCallingHandlers({
@@ -82,15 +89,7 @@ lfi_custom <- function(series, ..., FORECAST = FALSE, LEVEL = "mean") {
     }
     return(Index)
   }
-  if (...length() %% 2L) {
-    if (...length() == 1L) {
-      return(.prolong_annual_r(Index, ...))
-    }
-    return(r2index(Index, ...))
-    # NewIndex <-
-  } else {
-    return(dr2index(Index, ...))
-  }
+  .custom_series(Index, ...)
 }
 
 #' @rdname lf_inflator

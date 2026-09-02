@@ -36,8 +36,11 @@ defining which wage price index series to use.}
 
 \item{fy_month}{The month to be used in `series` for financial years.}
 
-\item{x}{(Advanced) A vector that will be inflated in-place. If \code{NULL},
-the default, the return vector is simply the inflation factor for `from`.}
+\item{x}{(Advanced) A double vector that will be inflated in-place. If
+\code{NULL}, the default, the return vector is simply the inflation factor
+for `from`. Since `x` is modified in place, any other name bound to the same
+object is modified too; an integer `x` is coerced to double, which copies, so
+in that case use the return value.}
 
 \item{nThread}{Number of threads to use.}
 

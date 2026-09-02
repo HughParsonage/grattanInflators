@@ -21,10 +21,22 @@ range close to the previous year is used.}
 \item{index}{A table of at least two columns, named \code{date} and \code{value}.
 \code{date} is the
 column of times to which \code{from}, \code{to} will be
-matched. \code{value} is the values that determine the inflation factor.}
+matched. \code{value} is the values that determine the inflation factor.
 
-\item{x}{(Advanced) A vector that will be inflated in-place. If \code{NULL},
-the default, the return vector is simply the inflation factor for `from`.}
+The dates must be a strictly increasing, regular annual, quarterly, or
+monthly sequence, and the values finite and nonzero: the underlying
+implementation locates an observation by arithmetic on the first date, not
+by a lookup, so an irregular or unsorted table would silently give the wrong
+answer. \code{Inflate} validates this before use.}
+
+\item{x}{(Advanced) A double vector that will be inflated in-place. If
+\code{NULL}, the default, the return vector is simply the inflation factor
+for `from`.
+
+Because \code{x} is modified in place, any other name bound to the same
+object is modified too. An integer \code{x} is coerced to double, which
+necessarily copies, so in that case the result must be taken from the return
+value rather than from \code{x}.}
 
 \item{fy_month}{An integer 1-12, the month to be used for
 years and financial years in \code{from} or \code{to}. For
@@ -34,7 +46,11 @@ while \code{fy_month = 6} means Jun-2016.}
 
 \item{check}{\code{integer(1)} If \code{0L}, no checks are performed, and
 clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
-an error is performed for bad input; \code{check = 2L} is more thorough.}
+an error is performed for bad input; \code{check = 2L} is more thorough.
+
+Note that \code{check} governs how loudly invalid \emph{dates} are reported.
+It never governs whether the index is bounds-checked: an out-of-range date
+always yields \code{NaN} rather than reading beyond the index.}
 
 \item{nThread}{Number of threads to use.}
 }

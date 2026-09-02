@@ -6,9 +6,14 @@
 #define ERR_CHAR_BAD_MDAY 17
 #define ERR_CHAR_FY_QUART 19
 #define ERR_CHAR_YYYY__QQ 20
+#define ERR_CHAR_BAD_NCHAR 21
+#define ERR_CHAR_BAD_SEPTR 22
 
-bool starts_with_yyyy(const char * x) {
-  return (x[0] == '1' || x[0] == '2') && isdigit(x[1]) && isdigit(x[2]) && isdigit(x[3]);
+bool starts_with_yyyy(const char * x, int n) {
+  // n must be checked first: fixed offsets are read below
+  return n >= 4 &&
+    (x[0] == '1' || x[0] == '2') &&
+    gi_isdigit(x[1]) && gi_isdigit(x[2]) && gi_isdigit(x[3]);
 }
 
 bool isnt_leap_yr(unsigned int yr) {
@@ -36,7 +41,7 @@ static bool is_valid_YYYYQQ(const char * z) {
 
 static bool is_valid_fy_quartet(const char * z) {
   register char u = z[2], v = z[3], x = z[5], y = z[6];
-  if (!isdigit(u) || !isdigit(v) || !isdigit(x) || !isdigit(y)) {
+  if (!gi_isdigit(u) || !gi_isdigit(v) || !gi_isdigit(x) || !gi_isdigit(y)) {
     return false;
   }
 
@@ -53,7 +58,7 @@ static bool is_valid_fy_quartet(const char * z) {
 
 unsigned char invalid_mday(const char * x, int yr, int month) {
   static int MDAYS[13] = {0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-  if (!isdigit(x[8]) || !isdigit(x[9])) {
+  if (!gi_isdigit(x[8]) || !gi_isdigit(x[9])) {
     return 1;
   }
   int mday = 10 * (x[8] - '0') + (x[9] - '0');
@@ -66,44 +71,60 @@ unsigned char invalid_mday(const char * x, int yr, int month) {
   return 0;
 }
 
+// The grammar accepted here must be exactly the grammar consumed by
+// string2YearMonth(): a string that passes this check must convert to the
+// same YearMonth that the converter produces, and vice versa.
 static unsigned char err_string(YearMonth * YM, const char * x, int n, int check, const int fy_month) {
-  if (!starts_with_yyyy(x)) {
+  // Only YYYY-mm-dd (10) and YYYY-YY / YYYY-Qq (7) can be converted, so any
+  // other width must be rejected rather than silently accepted.
+  if (n != 7 && n != 10) {
+    return ERR_CHAR_BAD_NCHAR;
+  }
+  if (!starts_with_yyyy(x, n)) {
     return ERR_CHAR_NOT_YYYY;
   }
   int yr = string2year(x);
   if (yr < 0 || yr > 127) {
     return ERR_CHAR_YR_RANGE;
   }
+  if (!gi_issep(x[4])) {
+    return ERR_CHAR_BAD_SEPTR;
+  }
   YM->year = yr;
   if (n == 10) {
+    if (!gi_issep(x[7])) {
+      return ERR_CHAR_BAD_SEPTR;
+    }
     int month = string2month(x);
     if (month == 15) {
       return ERR_CHAR_NO_MONTH;
     }
-    if (check >= 2 && invalid_mday(x, yr + 1948, month)) {
+    if (check >= 2 && invalid_mday(x, yr + MIN_YEAR, month)) {
       return ERR_CHAR_BAD_MDAY;
     }
     YM->month = month;
+    return 0;
   }
-  if (n == 7) {
-    if (is_valid_fy_quartet(x)) {
-      YM->month = fy_month;
-      YM->year++;
-      return 0;
-    }
+  // n == 7
+  if (is_valid_fy_quartet(x)) {
+    YM->month = fy_month;
+    // A financial year labelled YYYY-YY falls in the first calendar year for
+    // months Jul-Dec and in the second for Jan-Jun. string2YearMonth() applies
+    // the same rule.
+    YM->year += (fy_month < 7);
+    return 0;
+  }
 
-    if (is_valid_YYYYQQ(x)) {
-      YM->month = 3 * (x[6] - '0');
-      return 0;
-    }
-    if (x[5] == 'Q' || x[5] == 'q') {
-      return ERR_CHAR_YYYY__QQ;
-    }
-    if (!is_valid_fy_quartet(x)) {
-      return ERR_CHAR_FY_QUART;
-    }
+  if (is_valid_YYYYQQ(x)) {
+    // Quarters are dated by the last month of the quarter, as the ABS does;
+    // string2YearMonth() uses the same months.
+    YM->month = 3 * (x[6] - '0');
+    return 0;
   }
-  return 0;
+  if (x[5] == 'Q' || x[5] == 'q') {
+    return ERR_CHAR_YYYY__QQ;
+  }
+  return ERR_CHAR_FY_QUART;
 }
 
 
@@ -115,15 +136,14 @@ unsigned int packYearMonth(YearMonth ym) {
 
 
 static void check_valid_strings(unsigned int xpackminmax[2],
-                                const SEXP * xp, R_xlen_t N, int check, int nThread, const char * var,
+                                const SEXP * xp, R_xlen_t N, int check, const char * var,
                                 const int fy_month,
                                 const int min_date) {
   unsigned char o = 0;
   unsigned int pack_min = 2044; // maximum packYearMonth value
   unsigned int pack_max = 0;
-#if defined _OPENMP && _OPENMP >= 201511
-#pragma omp parallel for num_threads(nThread) schedule(static) reduction(| : o) reduction(min : pack_min) reduction(max : pack_max)
-#endif
+  // NOT parallelised: CHAR() and length() are R API calls, which are not
+  // thread-safe.
   for (R_xlen_t i = 0; i < N; ++i) {
     if (xp[i] == NA_STRING) {
       continue;
@@ -188,6 +208,14 @@ static void check_valid_strings(unsigned int xpackminmax[2],
       case ERR_CHAR_YYYY__QQ:
         error("`%s` contained invalid element:\n\t %s[%lld] = %s\n(Invalid YYYY-QQ).",
               var, var, (long long)i + 1, CHAR(xp[i]));
+      case ERR_CHAR_BAD_NCHAR:
+        error("`%s` contained invalid element:\n\t %s[%lld] = %s\n"
+              "(must be 10 characters (YYYY-mm-dd) or 7 (YYYY-YY or YYYY-Qq), not %d)",
+              var, var, (long long)i + 1, CHAR(xp[i]), (int)length(xp[i]));
+      case ERR_CHAR_BAD_SEPTR:
+        error("`%s` contained invalid element:\n\t %s[%lld] = %s\n"
+              "(date components must be separated by '-', '/' or '.')",
+              var, var, (long long)i + 1, CHAR(xp[i]));
       default:
         error("`%s` contained invalid element but error condition not known.", var);
       }
@@ -202,7 +230,7 @@ void check_strsxp(bool * any_beyond,
                   const int min_date,
                   const int max_date) {
   unsigned int xpackminmax[2];
-  check_valid_strings(xpackminmax, xp, N, check, nThread, var, fy_month, min_date);
+  check_valid_strings(xpackminmax, xp, N, check, var, fy_month, min_date);
   YearMonth YM_max_date = idate2YearMonth(max_date);
   unsigned int packed_max_date = packYearMonth(YM_max_date);
   if (xpackminmax[1] > packed_max_date) {
