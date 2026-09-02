@@ -327,16 +327,19 @@ validate_x <- function(x, from, to) {
 
 # Extends `index` to at least `until` by compounding the last observed
 # year-on-year rate. Used when fable is unavailable.
+.seq_clamped_months <- function(start, n, step) {
+  if (n <= 0L) {
+    return(as.IDate(character()))
+  }
+  .add_months(start, step * seq_len(n))
+}
+
 .prolong_Index <- function(index, until) {
   stopifnot(inherits(until, "IDate"))
   index_dates <- .subset2(index, "date")
   index_values <- .subset2(index, "value")
   n <- length(index_values)
   freq <- date2freq(index_dates)
-  by <- switch(as.character(freq),
-               "1" = "1 year",
-               "4" = "3 months",
-               "12" = "1 month")
 
   if (n <= freq) {
     stop("`index` has ", n, " observations, too few to determine a ",
@@ -349,7 +352,7 @@ validate_x <- function(x, from, to) {
   yrs <- max(year(until) - year(last(index_dates)) + 1L, 1L)
   n_new <- freq * yrs
 
-  new_dates <- seq(last(index_dates), by = by, length.out = n_new + 1L)[-1L]
+  new_dates <- .seq_clamped_months(last(index_dates), n_new, 12L %/% freq)
   new_value <- last(index_values) * r ^ (seq_len(n_new) / freq)
   rbind(index, data.table(date = new_dates, value = new_value))[date <= MAX_DATE]
 }
@@ -403,11 +406,7 @@ validate_x <- function(x, from, to) {
     }
     new_value <- fab[[".mean"]]
   }
-  new_dates <-
-    switch(as.character(date2freq(index_dates)),
-           "1" = seq(last(index_dates), by = "1 year", length.out = length(new_value) + 1)[-1],
-           "4" = seq(last(index_dates), by = "3 months", length.out = length(new_value) + 1)[-1],
-           "12" = seq(last(index_dates), by = "1 month", length.out = length(new_value) + 1)[-1])
+  new_dates <- .seq_clamped_months(last(index_dates), length(new_value), period_months)
   ans <- rbind(index, data.table(date = new_dates, value = new_value)[date <= MAX_DATE])
   ans_dates <- .subset2(ans, "date")
   covered_through <- 12L * year(last(ans_dates)) + month(last(ans_dates)) + period_months - 1L
@@ -420,13 +419,11 @@ validate_x <- function(x, from, to) {
 .prolong_annual_r <- function(index, r) {
   r <- .rate2rate(r)
   index_dates <- .subset2(index, "date")
-  new_dates <-
-    switch(as.character(date2freq(index_dates)),
-           "1" = seq(last(index_dates), by = "1 year", to = last(all_dates()))[-1],
-           "4" = seq(last(index_dates), by = "3 months", to = last(all_dates()))[-1],
-           "12" = seq(last(index_dates), by = "1 month", to = last(all_dates()))[-1])
+  freq <- date2freq(index_dates)
+  n_new <- max(.forecast_horizon(index_dates, MAX_DATE), 0L)
+  new_dates <- .seq_clamped_months(last(index_dates), n_new, 12L %/% freq)
 
-  pow <- seq_along(new_dates) / date2freq(index_dates)
+  pow <- seq_along(new_dates) / freq
 
   ans <-
     rbind(index,

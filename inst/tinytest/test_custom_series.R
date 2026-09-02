@@ -149,3 +149,52 @@ for (Index in list(IndexA, IndexQ, IndexM)) {
   expect_true(max(.subset2(p, "date")) <= as.IDate("2075-12-31"))
 }
 expect_error(prolong_r(IndexM, "not a rate"), "not a valid rate")
+
+# Forecast dates near month end are clamped to the target month. Each result is
+# anchored to the original day, so February does not permanently move a series
+# from the 29th--31st to the 28th.
+clamped <- grattanInflators:::.seq_clamped_months
+expect_equal(clamped(as.IDate("2023-01-29"), 3L, 1L),
+             as.IDate(c("2023-02-28", "2023-03-29", "2023-04-29")))
+expect_equal(clamped(as.IDate("2023-01-30"), 3L, 1L),
+             as.IDate(c("2023-02-28", "2023-03-30", "2023-04-30")))
+expect_equal(clamped(as.IDate("2023-01-31"), 3L, 1L),
+             as.IDate(c("2023-02-28", "2023-03-31", "2023-04-30")))
+
+# Exercise monthly, quarterly and annual month-end indices. These all end on
+# 31 January, the case where seq.Date(..., by = "months") used to skip February.
+month_end_indices <- list(
+  monthly = data.table(
+    date = seq(as.IDate("2021-02-01"), by = "1 month", length.out = 25L) - 1L,
+    value = 1.002 ^ (0:24)
+  ),
+  quarterly = data.table(
+    date = seq(as.IDate("2021-02-01"), by = "3 months", length.out = 9L) - 1L,
+    value = 1.006 ^ (0:8)
+  ),
+  annual = data.table(
+    date = seq(as.IDate("2016-02-01"), by = "1 year", length.out = 8L) - 1L,
+    value = 1.02 ^ (0:7)
+  )
+)
+first_forecast_dates <- as.IDate(c("2023-02-28", "2023-04-30", "2024-01-31"))
+
+for (i in seq_along(month_end_indices)) {
+  Index <- month_end_indices[[i]]
+  n0 <- nrow(Index)
+
+  fallback <- prolong(Index, as.IDate("2024-06-01"))
+  expect_equal(.subset2(fallback, "date")[n0 + 1L], first_forecast_dates[i])
+  expect_equal(length(grattanInflators:::validate_index(fallback)), nrow(fallback))
+
+  factor <- suppressWarnings(suppressMessages(
+    grattanInflators:::Inflate(.subset2(Index, "date")[n0],
+                               as.IDate("2024-06-01"), index = Index,
+                               check = 1L)
+  ))
+  expect_true(is.finite(factor))
+
+  rated <- prolong_r(Index, 0.02)
+  expect_equal(.subset2(rated, "date")[n0 + 1L], first_forecast_dates[i])
+  expect_equal(length(grattanInflators:::validate_index(rated)), nrow(rated))
+}
