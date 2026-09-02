@@ -182,22 +182,99 @@ void SEXP2YearMonth(YearMonth * ansp,
     return;
   }
   const SEXP * xp = STRING_PTR_RO(x);
+  if (N == 0) {
+    return;
+  }
 
-  // NOT parallelised: CHAR() and length() are R API calls, which are not
-  // thread-safe.
-  FORLOOP_SERIAL({
-    if (xp[i] == NA_STRING) {
-      ansp[i] = YM_NA();
+  // Extract strings on the main thread in bounded chunks, then convert
+  // without R API calls. A small CHARSXP dictionary means repeated dates are
+  // parsed once per chunk rather than once per element.
+  const R_xlen_t max_chunk = 1 << 20;
+  const R_xlen_t chunk_capacity = N < max_chunk ? N : max_chunk;
+  const char ** strings = (const char **)R_alloc(chunk_capacity, sizeof(*strings));
+  int * lengths = (int *)R_alloc(chunk_capacity, sizeof(*lengths));
+  int * string_ids = (int *)R_alloc(chunk_capacity, sizeof(*string_ids));
+  YearMonth * parsed = (YearMonth *)R_alloc(chunk_capacity, sizeof(*parsed));
+  const unsigned int cache_capacity = 1 << 16;
+  const unsigned int cache_mask = cache_capacity - 1;
+  SEXP * cache_keys = (SEXP *)R_alloc(cache_capacity, sizeof(*cache_keys));
+  int * cache_ids = (int *)R_alloc(cache_capacity, sizeof(*cache_ids));
+
+  for (R_xlen_t base = 0; base < N; base += chunk_capacity) {
+    R_xlen_t chunk_n = N - base;
+    if (chunk_n > chunk_capacity) {
+      chunk_n = chunk_capacity;
+    }
+    SEXP first = xp[base];
+    bool all_same = true;
+    for (R_xlen_t j = 1; j < chunk_n; ++j) {
+      if (xp[base + j] != first) {
+        all_same = false;
+        break;
+      }
+    }
+    if (all_same) {
+      YearMonth value = YM_NA();
+      if (first != NA_STRING) {
+        int n = length(first);
+        if (n == 7 || n == 10) {
+          string2YearMonth(&value, CHAR(first), n, fy_month);
+        }
+      }
+#if defined _OPENMP
+#pragma omp parallel for num_threads(nThread) schedule(static)
+#endif
+      for (R_xlen_t j = 0; j < chunk_n; ++j) {
+        ansp[base + j] = value;
+      }
+      R_CheckUserInterrupt();
       continue;
     }
-    int n = length(xp[i]);
-    if (n != 10 && n != 7) {
-      ansp[i] = YM_NA();
-      continue;
+
+    for (unsigned int k = 0; k < cache_capacity; ++k) {
+      cache_keys[k] = NULL;
     }
-    YearMonth O;
-    string2YearMonth(&O, CHAR(xp[i]), n, fy_month);
-    ansp[i] = O;
-  })
+    SEXP previous = R_NilValue;
+    int previous_id = -1;
+    int n_distinct = 0;
+    for (R_xlen_t j = 0; j < chunk_n; ++j) {
+      SEXP elt = xp[base + j];
+      if (elt == NA_STRING) {
+        string_ids[j] = -1;
+      } else if (elt == previous) {
+        string_ids[j] = previous_id;
+      } else {
+        unsigned int slot = ((uintptr_t)elt >> 3) & cache_mask;
+        if (cache_keys[slot] == elt) {
+          string_ids[j] = cache_ids[slot];
+        } else {
+          string_ids[j] = n_distinct;
+          strings[n_distinct] = CHAR(elt);
+          lengths[n_distinct] = length(elt);
+          cache_keys[slot] = elt;
+          cache_ids[slot] = n_distinct;
+          ++n_distinct;
+        }
+        previous = elt;
+        previous_id = string_ids[j];
+      }
+    }
+#if defined _OPENMP
+#pragma omp parallel for num_threads(nThread) schedule(static)
+#endif
+    for (int id = 0; id < n_distinct; ++id) {
+      parsed[id] = YM_NA();
+      if (lengths[id] == 7 || lengths[id] == 10) {
+        string2YearMonth(&parsed[id], strings[id], lengths[id], fy_month);
+      }
+    }
+#if defined _OPENMP
+#pragma omp parallel for num_threads(nThread) schedule(static)
+#endif
+    for (R_xlen_t j = 0; j < chunk_n; ++j) {
+      int id = string_ids[j];
+      ansp[base + j] = id < 0 ? YM_NA() : parsed[id];
+    }
+    R_CheckUserInterrupt();
+  }
 }
-

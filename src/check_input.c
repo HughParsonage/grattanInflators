@@ -136,36 +136,105 @@ unsigned int packYearMonth(YearMonth ym) {
 
 
 static void check_valid_strings(unsigned int xpackminmax[2],
-                                const SEXP * xp, R_xlen_t N, int check, const char * var,
+                                const SEXP * xp, R_xlen_t N, int check, int nThread,
+                                const char * var,
                                 const int fy_month,
                                 const int min_date) {
   unsigned char o = 0;
   unsigned int pack_min = 2044; // maximum packYearMonth value
   unsigned int pack_max = 0;
-  // NOT parallelised: CHAR() and length() are R API calls, which are not
-  // thread-safe.
-  for (R_xlen_t i = 0; i < N; ++i) {
-    if (xp[i] == NA_STRING) {
+
+  // Extract CHARSXP data on the main thread, then validate bounded batches in
+  // parallel without calling the R API from worker threads.
+  const R_xlen_t chunk_capacity = 1 << 20;
+  const char ** strings = (const char **)R_alloc(chunk_capacity, sizeof(*strings));
+  int * lengths = (int *)R_alloc(chunk_capacity, sizeof(*lengths));
+  for (R_xlen_t base = 0; base < N; base += chunk_capacity) {
+    R_xlen_t chunk_n = N - base;
+    if (chunk_n > chunk_capacity) {
+      chunk_n = chunk_capacity;
+    }
+    SEXP first = xp[base];
+    bool all_same = true;
+    for (R_xlen_t j = 1; j < chunk_n; ++j) {
+      if (xp[base + j] != first) {
+        all_same = false;
+        break;
+      }
+    }
+    if (all_same) {
+      if (first != NA_STRING) {
+        YearMonth YM;
+        YM.year = 0;
+        YM.month = 15;
+        unsigned char ei = err_string(&YM, CHAR(first), length(first), check,
+                                      fy_month);
+        o |= ei;
+        if (ei == 0 && YM.month <= 12) {
+          unsigned int packedYM = packYearMonth(YM);
+          if (packedYM < pack_min) {
+            pack_min = packedYM;
+          }
+          if (packedYM > pack_max) {
+            pack_max = packedYM;
+          }
+        }
+      }
+      R_CheckUserInterrupt();
       continue;
     }
-    int n = length(xp[i]);
-    const char * xi = CHAR(xp[i]);
-    YearMonth YM;
-    YM.year = 0;
-    YM.month = 15;
-    o |= err_string(&YM, xi, n, check, fy_month);
-    if (o == 0 && YM.month <= 12) {
-      unsigned int packedYM = packYearMonth(YM);
-      if (packedYM >= pack_min && packedYM <= pack_max) {
-        continue;
-      }
-      if (packedYM < pack_min) {
-        pack_min = packedYM;
-      }
-      if (packedYM > pack_max) {
-        pack_max = packedYM;
+    SEXP previous = R_NilValue;
+    const char * previous_string = NULL;
+    int previous_length = 0;
+    for (R_xlen_t j = 0; j < chunk_n; ++j) {
+      SEXP elt = xp[base + j];
+      if (elt == NA_STRING) {
+        strings[j] = NULL;
+        lengths[j] = 0;
+      } else if (elt == previous) {
+        strings[j] = previous_string;
+        lengths[j] = previous_length;
+      } else {
+        strings[j] = CHAR(elt);
+        lengths[j] = length(elt);
+        previous = elt;
+        previous_string = strings[j];
+        previous_length = lengths[j];
       }
     }
+    unsigned char chunk_o = 0;
+    unsigned int chunk_min = 2044;
+    unsigned int chunk_max = 0;
+#if defined _OPENMP
+#pragma omp parallel for num_threads(nThread) schedule(static) reduction(| : chunk_o) reduction(min : chunk_min) reduction(max : chunk_max)
+#endif
+    for (R_xlen_t j = 0; j < chunk_n; ++j) {
+      if (strings[j] == NULL) {
+        continue;
+      }
+      YearMonth YM;
+      YM.year = 0;
+      YM.month = 15;
+      unsigned char ei = err_string(&YM, strings[j], lengths[j], check, fy_month);
+      chunk_o |= ei;
+      if (ei == 0 && YM.month <= 12) {
+        unsigned int packedYM = packYearMonth(YM);
+        if (packedYM < chunk_min) {
+          chunk_min = packedYM;
+        }
+        if (packedYM > chunk_max) {
+          chunk_max = packedYM;
+        }
+      }
+    }
+    o |= chunk_o;
+    if (chunk_min < pack_min) {
+      pack_min = chunk_min;
+    }
+    if (chunk_max > pack_max) {
+      pack_max = chunk_max;
+    }
+    R_CheckUserInterrupt();
   }
 
   xpackminmax[0] = pack_min;
@@ -230,7 +299,7 @@ void check_strsxp(bool * any_beyond,
                   const int min_date,
                   const int max_date) {
   unsigned int xpackminmax[2];
-  check_valid_strings(xpackminmax, xp, N, check, var, fy_month, min_date);
+  check_valid_strings(xpackminmax, xp, N, check, nThread, var, fy_month, min_date);
   YearMonth YM_max_date = idate2YearMonth(max_date);
   unsigned int packed_max_date = packYearMonth(YM_max_date);
   if (xpackminmax[1] > packed_max_date) {
@@ -256,7 +325,7 @@ void check_strsxp(bool * any_beyond,
 
 void check_intsxp(bool * any_beyond,
                   const int * xp, R_xlen_t N, int check, const char * var,
-                  bool was_date,
+                  bool was_date, bool was_fy, int fy_month,
                   int nThread,
                   const int min_date,
                   const int max_date) {
@@ -308,29 +377,42 @@ void check_intsxp(bool * any_beyond,
     // was year
     int yr_min_date = year(min_date);
     int yr_max_date = year(max_date);
-    if (yr_min_date > xminmax[0]) {
+    // fy::fy2yr() supplies the ending year. A Jul-Dec financial-year month is
+    // in the preceding calendar year, matching SEXP2YearMonth().
+    int fy_adjust = was_fy && fy_month >= 7;
+    int resolved_min = xminmax[0] - fy_adjust;
+    int resolved_max = xminmax[1] - fy_adjust;
+    if (yr_min_date > resolved_min) {
       for (R_xlen_t i = 0; i < N; ++i) {
-        if (yr_min_date <= xp[i] || xp[i] == NA_INTEGER) {
+        if (xp[i] == NA_INTEGER) {
+          continue;
+        }
+        int resolved_i = xp[i] - fy_adjust;
+        if (yr_min_date <= resolved_i) {
           continue;
         }
         error("`%s[%lld] = %d`, which is earlier than the earliest date in the series (%d).",
-                var, (long long)i + 1, xp[i], yr_min_date);
+                var, (long long)i + 1, resolved_i, yr_min_date);
         break;
       }
     }
 
-    *any_beyond = yr_max_date < xminmax[1];
-    if ((check >= 2 && *any_beyond) || xminmax[1] > MAX_YEAR) {
+    *any_beyond = yr_max_date < resolved_max;
+    if ((check >= 2 && *any_beyond) || resolved_max > MAX_YEAR) {
       for (R_xlen_t i = 0; i < N; ++i) {
-        if (xp[i] > MAX_YEAR) {
-          error("`%s[%lld] = %d`, which is later than the latest supported year (%d)",
-                var, (long long)i + 1, xp[i], MAX_YEAR);
+        if (xp[i] == NA_INTEGER) {
+          continue;
         }
-        if (xp[i] <= yr_max_date || xp[i] == NA_INTEGER) {
+        int resolved_i = xp[i] - fy_adjust;
+        if (resolved_i > MAX_YEAR) {
+          error("`%s[%lld] = %d`, which is outside the supported years (latest %d)",
+                var, (long long)i + 1, resolved_i, MAX_YEAR);
+        }
+        if (resolved_i <= yr_max_date) {
           continue;
         }
         error("`check >= 2` yet `%s[%lld] = %d`, which is later than the latest year in the series (%d).",
-              var, (long long)i + 1, xp[i], yr_max_date);
+              var, (long long)i + 1, resolved_i, yr_max_date);
       }
     }
   }
@@ -353,6 +435,7 @@ SEXP C_check_input(SEXP x, SEXP Var, SEXP Check, SEXP Class, SEXP minDate, SEXP 
   int nThread = as_nThread(nthreads);
   int xclass = asInteger(Class);
   bool was_date = xclass == CLASS_Date || xclass == CLASS_IDate;
+  bool was_fy = xclass == CLASS_FY;
   const int min_date = asInteger(minDate);
   const int max_date = asInteger(maxDate);
   if (min_date < MIN_IDATE || min_date > MAX_IDATE || max_date < MIN_IDATE || max_date > MAX_IDATE) {
@@ -365,7 +448,8 @@ SEXP C_check_input(SEXP x, SEXP Var, SEXP Check, SEXP Class, SEXP minDate, SEXP 
     check_strsxp(&any_beyond, STRING_PTR_RO(x), xlength(x), check, var, fy_month, nThread, min_date, max_date);
     break;
   case INTSXP:
-    check_intsxp(&any_beyond, INTEGER(x), xlength(x), check, var, was_date, nThread, min_date, max_date);
+    check_intsxp(&any_beyond, INTEGER(x), xlength(x), check, var,
+                 was_date, was_fy, fy_month, nThread, min_date, max_date);
   }
 
 

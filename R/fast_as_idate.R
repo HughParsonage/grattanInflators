@@ -33,23 +33,11 @@ fast_as_idate <- function(x, incl_day = TRUE, check = 0L, nThread = 1L, format =
   if (!is.character(x)) {
     stop("`x` was of class <", toString(class(x)), "> but must be a character vector.")
   }
-  # .check_input validates the year-first grammar only, so it must not be
-  # applied to a day-first or month-name format.
-  if (check >= 1L && identical(format, "%Y-%m-%d")) {
-    .check_input(x, MIN_DATE, MAX_DATE, check = check, nThread = nThread,
-                 # "character"
-                 xclass = 5L)
-  }
+  # Parsing and validation happen together in C. Keeping them in one pass is
+  # important for very long character vectors and ensures every supported
+  # format receives the same checking contract.
   o <- .Call("C_fastIDate", x, incl_day, check, format, nThread,
              PACKAGE = packageName())
-  if (check >= 1L) {
-    # every format gets the same contract: an unparseable element is an error
-    bad <- which(is.na(o) & !is.na(x))
-    if (length(bad)) {
-      stop("`x[", bad[1L], "] = ", x[bad[1L]],
-           "` could not be parsed as a date in format \"", format, "\".")
-    }
-  }
   class(o) <- c("IDate", "Date")
   o
 }

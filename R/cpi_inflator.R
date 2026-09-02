@@ -137,6 +137,11 @@ supported_classes <- function(x) {
 # receives, not the value the user supplied: ensure_date() resolves several
 # classes (notably <fy>) to something else.
 converted_class <- function(x, original_class) {
+  # ensure_date() represents an <fy> as its ending year, which is the compact
+  # integer representation expected by CLASS_FY in the native kernels.
+  if (length(original_class) && original_class[1L] == CLASS_FY) {
+    return(CLASS_FY)
+  }
   if (inherits(x, "IDate")) {
     return(CLASS_IDate)
   }
@@ -150,6 +155,7 @@ converted_class <- function(x, original_class) {
   original_class # nocov
 }
 
+CLASS_FY <- 1L
 CLASS_IDate <- 3L
 CLASS_integer <- 4L
 CLASS_character <- 5L
@@ -157,10 +163,11 @@ CLASS_character <- 5L
 # Convert `x` to one of the three representations the native code understands:
 # an IDate, a character date, or an integer year.
 #
-# A financial year is resolved here, to a concrete IDate, so that checking and
-# conversion cannot disagree about which calendar month it denotes. `fy_month`
-# in Jul-Dec falls in the first calendar year of the label, Jan-Jun in the
-# second; fy::fy2yr() gives the second.
+# A financial year is represented by its ending year. The native CLASS_FY path
+# resolves that compact integer representation to `fy_month`, avoiding a large
+# intermediate character vector for long inputs. `fy_month` in Jul-Dec falls
+# in the first calendar year of the label, Jan-Jun in the second; fy::fy2yr()
+# gives the second.
 ensure_date <- function(x, fy_month = 3L, var = "x", check = 1L) {
   if (inherits(x, "IDate")) {
     return(x)
@@ -169,22 +176,18 @@ ensure_date <- function(x, fy_month = 3L, var = "x", check = 1L) {
     if (!isTRUE(fy_month %in% 1:12)) {
       stop("`fy_month = ", fy_month, "` but must be an integer between 1 and 12.")
     }
-    yr <- fy::fy2yr(x) - (fy_month >= 7L)
-    bad_yr <- !is.na(yr) & (yr < 1948L | yr > 2075L)
-    if (check >= 1L && any(bad_yr)) {
-      i <- which(bad_yr)[1L]
+    ending_yr <- fy::fy2yr(x)
+    # fy2yr() represents an unsupported label as NA. Detect that before the
+    # original value is lost; supported-range checks on valid ending years are
+    # then performed by C_check_input without allocating full-length logical
+    # temporaries.
+    if (check >= 1L && anyNA(ending_yr)) {
+      i <- which(is.na(ending_yr))[1L]
       stop("`", var, "[", i, "] = ", as.character(x[i]),
-           "` resolves to year ", yr[i],
-           ", but supported years are between 1948 and 2075.")
+           "` is not a supported financial year (resolved years must be ",
+           "between 1948 and 2075).")
     }
-    out <- rep(NA_integer_, length(yr))
-    class(out) <- c("IDate", "Date")
-    ok <- !is.na(yr)
-    if (any(ok)) {
-      out[ok] <- fast_as_idate(sprintf("%04d-%02d-01", yr[ok], as.integer(fy_month)),
-                               incl_day = FALSE)
-    }
-    return(out)
+    return(ending_yr)
   }
   if (inherits(x, "Date")) {
     return(as.IDate(x))

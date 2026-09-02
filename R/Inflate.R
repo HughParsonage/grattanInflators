@@ -69,9 +69,8 @@ Inflate <- function(from, to,
   to_class <- supported_classes(class(to))
   from <- ensure_date(from, fy_month = fy_month, var = from_vname, check = check)
   to <- ensure_date(to, fy_month = fy_month, var = to_vname, check = check)
-  # ensure_date() resolves a financial year to a concrete IDate, so the class
-  # reported to the native code must be re-derived from the converted value
-  # rather than taken from the original.
+  # ensure_date() may change the storage representation. Keep CLASS_FY for its
+  # compact ending-year representation; otherwise report the converted type.
   from_class <- converted_class(from, from_class)
   to_class <- converted_class(to, to_class)
 
@@ -107,17 +106,14 @@ Inflate <- function(from, to,
   }
 
   if (is.double(x) && length(from) == 1L && length(to) == 1L) {
-    if (from_was_fy || to_was_fy) {
-      # Recursing with the converted IDates would lose the fact that these
-      # values originated as financial years and select C_Inflate2.
-      r <- .Call("C_Inflate",
-                 from, to, .subset2(index, "value"), minDate,
-                 date2freq(index_dates), fy_month, NULL,
-                 from_class, to_class, 1L,
-                 PACKAGE = packageName())
-    } else {
-      r <- Inflate(from, to, index, fy_month = fy_month, check = check, nThread = 1L)
-    }
+    # Compute the scalar factor directly. Recursing through Inflate() repeats
+    # all index and input validation, which is noticeable when the actual work
+    # is a single factor followed by an in-place vector multiplication.
+    r <- .Call("C_Inflate",
+               from, to, .subset2(index, "value"), minDate,
+               date2freq(index_dates), fy_month, NULL,
+               from_class, to_class, 1L,
+               PACKAGE = packageName())
     .Call("C_multiply", x, r, nThread, PACKAGE = packageName())
     return(x)
   }

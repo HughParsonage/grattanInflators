@@ -34,3 +34,10 @@ expect_error(fast_as_idate("01Fxx2024", format = "%d%b%Y", check = 1L),
              "could not be parsed")
 expect_equal(fast_as_idate(c("01Feb2024", "01fEB2024"), format = "%d%b%Y", check = 1L),
              as.IDate(c("2024-02-01", "2024-02-01")))
+
+# Chunked parsing must give identical results for repeated and mixed strings,
+# including missing values, regardless of the requested thread count.
+mixed_dates <- rep(c("2000-01-01", "2024-02-29", NA_character_, "2075-12-31"),
+                   25000L)
+expect_equal(fast_as_idate(mixed_dates, check = 2L, nThread = 2L),
+             as.IDate(mixed_dates))

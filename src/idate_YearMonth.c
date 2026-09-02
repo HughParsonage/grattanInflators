@@ -403,6 +403,74 @@ static void ddbbyyyy2YearMonth(int * year, int * month, const char * xi) {
   *month = parse_month_abbrev(xi + 2);
 }
 
+// Parse one string without touching the R API. Keeping this separate from the
+// CHARSXP extraction lets the expensive part run safely in parallel.
+static int parse_1_idate(const char * xi, int n, dateformat format,
+                         bool incl_day, int check) {
+  int year_i = -1;
+  int month_i = -1;
+  int parsed_mday = -1;
+
+  switch (format) {
+  case yyyy_mm_dd:
+    if (n != 10) {
+      return NA_INTEGER;
+    }
+    if (check >= 1 && (!gi_issep(xi[4]) || !gi_issep(xi[7]))) {
+      return NA_INTEGER;
+    }
+    year_i = string102year(xi);
+    month_i = string102month(xi);
+    parsed_mday = (incl_day || check >= 1) ? read_digits(xi, 8, 2) : 1;
+    break;
+  case dd_mm_yyyy:
+    if (n < 8 || n > 10 ||
+        !parse_dmy(xi, n, &year_i, &month_i, &parsed_mday)) {
+      return NA_INTEGER;
+    }
+    break;
+  case ddbbyyyy:
+    if (n != 9) {
+      return NA_INTEGER;
+    }
+    ddbbyyyy2YearMonth(&year_i, &month_i, xi);
+    parsed_mday = (incl_day || check >= 1) ? read_digits(xi, 0, 2) : 1;
+    break;
+  }
+
+  int validated_mday = (incl_day || check >= 1) ? parsed_mday : 1;
+  int mday_i = incl_day ? parsed_mday : 1;
+  if (!VALID_YMD(year_i, month_i, validated_mday) ||
+      (check >= 2 && !valid_calendar_mday(year_i, month_i, parsed_mday))) {
+    return NA_INTEGER;
+  }
+  return ARR[12 * (year_i - MIN_YEAR) + (month_i - 1)] + mday_i - 1;
+}
+
+static void invalid_date_error(R_xlen_t i, const char * x, int n,
+                               dateformat format, const char * format_string) {
+  if (format == yyyy_mm_dd) {
+    if (n == 7) {
+      error("`x[%lld] = %s` is not a valid fy or date; expected YYYY-mm-dd.",
+            (long long)i + 1, x);
+    }
+    if (n < 4 || !starts_with_yyyy(x, n)) {
+      error("`x[%lld] = %s` must start with YYYY.", (long long)i + 1, x);
+    }
+    int year_i = read_digits(x, 0, 4);
+    if (year_i < MIN_YEAR || year_i > MAX_YEAR) {
+      error("`x[%lld] = %s`: Years must be between %d and %d.",
+            (long long)i + 1, x, MIN_YEAR, MAX_YEAR);
+    }
+    if (n >= 7 && string102month(x) == NA_INTEGER) {
+      error("`x[%lld] = %s`: Month component invalid.",
+            (long long)i + 1, x);
+    }
+  }
+  error("`x[%lld] = %s` could not be parsed as a date in format \"%s\".",
+        (long long)i + 1, x, format_string);
+}
+
 // Guess format
 SEXP C_guess_date_format(SEXP x) {
   if (!isString(x)) {
@@ -450,87 +518,129 @@ SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP Check, SEXP Format, SEXP nthreads
     error("Expected a STRSXP."); // # nocov
   }
   const bool incl_day = asLogical(IncludeDay);
-  const bool check_calendar_day = asInteger(Check) >= 2;
+  const int check = asInteger(Check);
   dateformat format = encode_format(Format);
   const SEXP * xp = STRING_PTR_RO(x);
   R_xlen_t N = xlength(x);
 
   SEXP ans = PROTECT(allocVector(INTSXP, N));
   int * restrict ansp = INTEGER(ans);
-  // These loops are NOT parallelised: CHAR() and length() are R API calls,
-  // which are not thread-safe.
-  switch(format) {
-  case yyyy_mm_dd:
-    FORLOOP_SERIAL({
-      ansp[i] = NA_INTEGER;
-      if (xp[i] == NA_STRING) {
-        continue;
+  if (N == 0) {
+    UNPROTECT(1);
+    return ans;
+  }
+
+  // R's string accessors are not thread-safe. Extract a bounded batch of raw
+  // pointers on the main thread, then parse that batch in parallel without R
+  // API calls. The fixed-size workspace keeps memory bounded even for vectors
+  // with billions of elements.
+  const R_xlen_t max_chunk = 1 << 20;
+  const R_xlen_t chunk_capacity = N < max_chunk ? N : max_chunk;
+  const char ** strings = (const char **)R_alloc(chunk_capacity, sizeof(*strings));
+  int * lengths = (int *)R_alloc(chunk_capacity, sizeof(*lengths));
+  int * string_ids = (int *)R_alloc(chunk_capacity, sizeof(*string_ids));
+  int * parsed_values = (int *)R_alloc(chunk_capacity, sizeof(*parsed_values));
+  const unsigned int cache_capacity = 1 << 16;
+  const unsigned int cache_mask = cache_capacity - 1;
+  SEXP * cache_keys = (SEXP *)R_alloc(cache_capacity, sizeof(*cache_keys));
+  int * cache_ids = (int *)R_alloc(cache_capacity, sizeof(*cache_ids));
+  for (R_xlen_t base = 0; base < N; base += chunk_capacity) {
+    R_xlen_t chunk_n = N - base;
+    if (chunk_n > chunk_capacity) {
+      chunk_n = chunk_capacity;
+    }
+    // Repeated dates are common in large inflator workloads. Parse a uniform
+    // batch once, while still filling the result in parallel.
+    SEXP first = xp[base];
+    bool all_same = true;
+    for (R_xlen_t j = 1; j < chunk_n; ++j) {
+      if (xp[base + j] != first) {
+        all_same = false;
+        break;
       }
-      int n = length(xp[i]);
-      const char * xi = CHAR(xp[i]);
-      if (n != 10) {
-        continue;
+    }
+    if (all_same) {
+      const char * string = first == NA_STRING ? NULL : CHAR(first);
+      int string_length = first == NA_STRING ? 0 : length(first);
+      int parsed = string == NULL ? NA_INTEGER :
+        parse_1_idate(string, string_length, format, incl_day, check);
+#if defined _OPENMP
+#pragma omp parallel for num_threads(nThread) schedule(static)
+#endif
+      for (R_xlen_t j = 0; j < chunk_n; ++j) {
+        ansp[base + j] = parsed;
       }
-      int year_i = string102year(xi);
-      int month_i = string102month(xi);
-      int parsed_mday = (incl_day || check_calendar_day) ? read_digits(xi, 8, 2) : 1;
-      int mday_i = incl_day ? parsed_mday : 1;
-      if (!VALID_YMD(year_i, month_i, parsed_mday) ||
-          (check_calendar_day && !valid_calendar_mday(year_i, month_i, parsed_mday))) {
-        continue;
+      if (check >= 1 && string != NULL && parsed == NA_INTEGER) {
+        invalid_date_error(base, string, string_length, format,
+                           CHAR(STRING_ELT(Format, 0)));
       }
-      ansp[i] = ARR[12 * (year_i - MIN_YEAR) + (month_i - 1)] + mday_i - 1;
-    })
-    break;
-  case dd_mm_yyyy:
-    FORLOOP_SERIAL({
-      ansp[i] = NA_INTEGER;
-      if (xp[i] == NA_STRING) {
-        continue;
+      R_CheckUserInterrupt();
+      continue;
+    }
+    for (unsigned int k = 0; k < cache_capacity; ++k) {
+      cache_keys[k] = NULL;
+    }
+    SEXP previous = R_NilValue;
+    int previous_id = -1;
+    int n_distinct = 0;
+    for (R_xlen_t j = 0; j < chunk_n; ++j) {
+      SEXP elt = xp[base + j];
+      if (elt == NA_STRING) {
+        string_ids[j] = -1;
+      } else if (elt == previous) {
+        string_ids[j] = previous_id;
+      } else {
+        unsigned int slot = ((uintptr_t)elt >> 3) & cache_mask;
+        if (cache_keys[slot] == elt) {
+          string_ids[j] = cache_ids[slot];
+        } else {
+          string_ids[j] = n_distinct;
+          strings[n_distinct] = CHAR(elt);
+          lengths[n_distinct] = length(elt);
+          cache_keys[slot] = elt;
+          cache_ids[slot] = n_distinct;
+          ++n_distinct;
+        }
+        previous = elt;
+        previous_id = string_ids[j];
       }
-      int n = length(xp[i]);
-      const char * xi = CHAR(xp[i]);
-      if (n < 8 || n > 10) {
-        continue;
+    }
+    if (n_distinct < chunk_n / 2) {
+#if defined _OPENMP
+#pragma omp parallel for num_threads(nThread) schedule(static)
+#endif
+      for (int id = 0; id < n_distinct; ++id) {
+        parsed_values[id] = parse_1_idate(strings[id], lengths[id], format,
+                                          incl_day, check);
       }
-      int year_i = -1;
-      int month_i = -1;
-      int parsed_mday = -1;
-      if (!parse_dmy(xi, n, &year_i, &month_i, &parsed_mday)) {
-        continue;
+#if defined _OPENMP
+#pragma omp parallel for num_threads(nThread) schedule(static)
+#endif
+      for (R_xlen_t j = 0; j < chunk_n; ++j) {
+        int id = string_ids[j];
+        ansp[base + j] = id < 0 ? NA_INTEGER : parsed_values[id];
       }
-      int validated_mday = (incl_day || check_calendar_day) ? parsed_mday : 1;
-      int mday_i = incl_day ? parsed_mday : 1;
-      if (!VALID_YMD(year_i, month_i, validated_mday) ||
-          (check_calendar_day && !valid_calendar_mday(year_i, month_i, parsed_mday))) {
-        continue;
+    } else {
+#if defined _OPENMP
+#pragma omp parallel for num_threads(nThread) schedule(static)
+#endif
+      for (R_xlen_t j = 0; j < chunk_n; ++j) {
+        int id = string_ids[j];
+        ansp[base + j] = id < 0 ? NA_INTEGER :
+          parse_1_idate(strings[id], lengths[id], format, incl_day, check);
       }
-      ansp[i] = ARR[12 * (year_i - MIN_YEAR) + (month_i - 1)] + mday_i - 1;
-    })
-    break;
-  case ddbbyyyy:
-    FORLOOP_SERIAL({
-      ansp[i] = NA_INTEGER;
-      if (xp[i] == NA_STRING) {
-        continue;
+    }
+    if (check >= 1) {
+      for (R_xlen_t j = 0; j < chunk_n; ++j) {
+        int id = string_ids[j];
+        if (id >= 0 && ansp[base + j] == NA_INTEGER) {
+          R_xlen_t i = base + j;
+          invalid_date_error(i, strings[id], lengths[id], format,
+                             CHAR(STRING_ELT(Format, 0)));
+        }
       }
-      int n = length(xp[i]);
-      const char * xi = CHAR(xp[i]);
-      if (n != 9) {
-        continue;
-      }
-      int year_i = -1;
-      int month_i = -1;
-      ddbbyyyy2YearMonth(&year_i, &month_i, xi);
-      int parsed_mday = (incl_day || check_calendar_day) ? read_digits(xi, 0, 2) : 1;
-      int mday_i = incl_day ? parsed_mday : 1;
-      if (!VALID_YMD(year_i, month_i, parsed_mday) ||
-          (check_calendar_day && !valid_calendar_mday(year_i, month_i, parsed_mday))) {
-        continue;
-      }
-      ansp[i] = ARR[12 * (year_i - MIN_YEAR) + (month_i - 1)] + mday_i - 1;
-    })
-    break;
+    }
+    R_CheckUserInterrupt();
   }
   UNPROTECT(1);
   return ans;
@@ -598,8 +708,3 @@ int yqi(YearMonth YM) {
   i += MONTH_TO_QUARTER[YM.month];
   return i;
 }
-
-
-
-
-
