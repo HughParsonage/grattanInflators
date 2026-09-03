@@ -4,8 +4,9 @@
 #' @param from,to Times for which the inflator is desired. If \code{NULL}, a date
 #' range close to the previous year is used.
 #' @param check \code{integer(1)} If \code{0L}, no checks are performed, and
-#' clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
-#' an error is performed for bad input; \code{check = 2L} is more thorough.
+#' clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L},
+#' invalid input errors and extrapolation warns. If \code{check = 2L}, dates
+#' outside the exact index endpoints error instead of being extrapolated.
 #'
 #' @param series A call to `wpi_original()`, `wpi_seasonal()`, or `wpi_trend()`,
 #' defining which wage price index series to use.
@@ -16,8 +17,11 @@
 #' (`LEVEL = 20` means the lower end of an 80\% prediction interval.) If `LEVEL = "mean"`
 #' (the default), the central estimate is used.
 #'
-#' @param x (Advanced) A vector that will be inflated in-place. If \code{NULL},
-#' the default, the return vector is simply the inflation factor for `from`.
+#' @param x (Advanced) A double vector that will be inflated in-place. If
+#' \code{NULL}, the default, the return vector is simply the inflation factor
+#' for `from`. Since `x` is modified in place, any other name bound to the same
+#' object is modified too; an integer `x` is coerced to double, which copies, so
+#' in that case use the return value.
 #'
 #' @param nThread Number of threads to use.
 #'
@@ -37,6 +41,10 @@ wage_inflator <- function(from = NULL, to = NULL,
                           fy_month = 3L,
                           x = NULL,
                           nThread = getOption("grattanInflators.nThread", 1L)) {
+  if (no_series_data(series)) {
+    return(NULL) # nocov
+  }
+
   sys_call <- deparse(sys.call())
   ans <- NULL
   withCallingHandlers({
@@ -48,9 +56,6 @@ wage_inflator <- function(from = NULL, to = NULL,
   },
   error = function(e) {
     stop(sys_call, ": ", e$message, call. = FALSE)
-  },
-  warning = function(e) {
-    warning(sys_call, ": ", e$message, call. = FALSE)
   },
   message = function(e) {
     # Uncommenting this line results in the message being duplicated
@@ -77,15 +82,7 @@ wpi_custom <- function(series, ..., FORECAST = FALSE, LEVEL = "mean") {
     }
     return(Index)
   }
-  if (...length() %% 2L) {
-    if (...length() == 1L) {
-      return(.prolong_annual_r(Index, ...))
-    }
-    return(r2index(Index, ...))
-    # NewIndex <-
-  } else {
-    return(dr2index(Index, ...))
-  }
+  .custom_series(Index, ...)
 }
 
 #' @rdname wage_inflator

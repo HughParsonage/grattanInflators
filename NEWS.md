@@ -1,3 +1,99 @@
+## grattanInflators 0.5.8
+
+### Bug fixes (memory safety)
+
+* `Inflate(x = )` no longer writes past the end of `x` when `x` is shorter than
+  `from`, and no longer requires `x` to be a double: the length is checked in
+  both R and C, and an integer `x` is coerced (and so must be read back from
+  the return value).
+* The monthly, quarterly and annual kernels now bounds-check every index
+  position before reading it. An out-of-range date gives `NaN`. This check is
+  unconditional: `check = 0` suppresses diagnostics, never bounds checks.
+* Zero-length inputs no longer read element zero of an empty vector.
+  `fast_as_idate()`, `Inflate()` and the internal `Year()`/`YearMonthSplit()`
+  return empty results.
+* `fast_as_idate()` no longer indexes before the start of its month table when
+  the month component is zero or a month name is unrecognised (e.g.
+  `"01/00/2024"`, `"01XYZ1948"`).
+* Loops that call the R API (`CHAR()`, `length()`) are no longer run under
+  OpenMP, as most of the R API is not thread-safe.
+* Dates in December 2075, the last month of the supported range, are no longer
+  reported as November: the binary search over the month table could not return
+  its final element. `format_idate()` produced impossible strings such as
+  `"2075-11-61"`.
+
+### Bug fixes (dates)
+
+* Years are now parsed from all four digits. `"2999-01-01"` was silently read
+  as 1999; it is now rejected (or `NaN` when `check = 0`).
+* A financial year now means the same thing to the input checker and to the
+  converter. Previously, for `fy_month >= 7`, the two disagreed by one calendar
+  year.
+* An `<fy>` object now means the same thing as the equivalent `"YYYY-YY"`
+  string. Previously it lost its class during conversion and was read as
+  January of the ending year, whatever `fy_month` was.
+* A quarter (`"2015-Q1"`) is now the last month of that quarter everywhere.
+  The checker used Mar/Jun/Sep/Dec and the converter Feb/May/Aug/Nov, which
+  differ on a monthly index.
+* The input checker now accepts exactly the strings the converter can read: a
+  string of any other length (such as `"2020"`), or with arbitrary bytes in the
+  separator positions, is rejected rather than passed and then silently
+  converted to `NaN`.
+* A fractional year (`cpi_inflator(2015.9, 2016)`) is an error rather than
+  being truncated to 2015.
+
+### Bug fixes (`fast_as_idate`)
+
+* `format = "%d-%m-%Y"` is now supported, as announced in 0.5.2.
+  `guess_format()` could return it while the parser did not recognise it and
+  read the date year-first instead.
+* An unrecognised `format` is now an error rather than being read as
+  `"%Y-%m-%d"`.
+* `guess_format()` now recognises day-first dates beginning 30 or 31, and
+  reports the separator actually used.
+* `check` now applies to every format, not only `"%Y-%m-%d"`.
+
+### Bug fixes (custom series and forecasting)
+
+* `dr2index()` no longer skips the first period after the end of the published
+  series, and no longer adds a period beyond the requested date.
+* `.next_date()` no longer produces a thirteenth month for a quarterly series
+  anchored in October or November, and clamps the day of the month rather than
+  producing an invalid date.
+* `r2index()` no longer errors with "object 'next_date' not found".
+* A trailing rate (`cpi_original(2030, 0.1, 0.05)`) is now dispatched
+  correctly.
+* Rates given as strings keep their sign and exponent: `"-5%"` was read as
+  `+5%` and `"1e-2"` as `12`. Rates are now validated against a strict grammar
+  and a rate of -100% or less is rejected.
+* The non-`fable` fallback extension built one more date than value for annual
+  series (producing a recycling warning and a wrong final row), and used
+  quarterly arithmetic for monthly series. Both are fixed.
+* The `fable` path restores the `data.table` thread count with `on.exit()`, so
+  a modelling error no longer leaves it changed.
+
+### Other changes
+
+* `index` is now validated before use: it must have `date` and `value` columns,
+  at least two rows, strictly increasing dates forming a regular annual,
+  quarterly or monthly sequence, and finite non-zero values. The native code
+  computes a row offset arithmetically, so an irregular or unsorted index would
+  otherwise be read at the wrong position.
+* A downloaded series is fully parsed and validated before it replaces the
+  cached file, the replacement is a same-filesystem rename (with the previous
+  version kept alongside as `.bak`), and the in-memory copy of a refreshed
+  series is dropped so that `download_data()` takes effect within a session.
+* `GET_SERIES_FY()` no longer adds an `fy` column by reference to the cached
+  series.
+* Tests no longer skip the whole suite when the mirrored ABS data is
+  unavailable. The parser, native-safety, custom-series and synthetic-index
+  tests now run on every platform (and under the sanitizers); only the files
+  that genuinely need the ABS data skip themselves. The exported inflators
+  still degrade to a message and `NULL` when no data can be obtained, so a
+  machine with no internet access does not fail `R CMD check`.
+* Removed a unit test that had been gated on a date now past, and so had
+  stopped running.
+
 ## grattanInflators 0.5.7
 
 * Bug fix:

@@ -4,9 +4,13 @@
 #' when the day component does not matter (or is constantly -01); the day component
 #' in the output will be -01.
 #' @param check \code{integer: 0, 1, or 2} Level of check to perform. 0 for no
-#' checks.
+#' checks; 1 errors on any element that cannot be parsed; 2 additionally
+#' rejects impossible days of the month (such as 30 February).
 #' @param nThread Number of threads to use.
-#' @param format The expected format of the input.
+#' @param format The expected format of the input: one of \code{"\%Y-\%m-\%d"},
+#' \code{"\%d/\%m/\%Y"}, \code{"\%d-\%m-\%Y"} or \code{"\%d\%b\%Y"}. An
+#' unrecognised format is an error rather than being reinterpreted as another.
+#' \code{guess_format()} returns a format that this function accepts.
 #'
 #' @examples
 #' # For ABS data, we only need to care (and check)
@@ -26,10 +30,14 @@
 #' @export
 
 fast_as_idate <- function(x, incl_day = TRUE, check = 0L, nThread = 1L, format = "%Y-%m-%d") {
-  .check_input(x, as.IDate("1948-01-01"), as.IDate("2075-12-31"), check = check, nThread = nThread,
-               # "character"
-               xclass = 5L)
-  o <- .Call("C_fastIDate", x, incl_day, format, nThread, PACKAGE = packageName())
+  if (!is.character(x)) {
+    stop("`x` was of class <", toString(class(x)), "> but must be a character vector.")
+  }
+  # Parsing and validation happen together in C. Keeping them in one pass is
+  # important for very long character vectors and ensures every supported
+  # format receives the same checking contract.
+  o <- .Call("C_fastIDate", x, incl_day, check, format, nThread,
+             PACKAGE = packageName())
   class(o) <- c("IDate", "Date")
   o
 }

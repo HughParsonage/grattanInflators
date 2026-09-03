@@ -16,7 +16,10 @@ and \code{value} is the indexed value for that date.}
 
 \item{r1}{The desired rate of increase for the index from the last date in \code{index}
 to the end of \code{d1}. For example, \code{d1 = 2025} and \code{r1 = 0} applied
-to a monthly \code{index} would keep \code{value} constant until \code{2025-12-01}.}
+to a monthly \code{index} would keep \code{value} constant until \code{2025-12-01}.
+
+Rates are annual and may be given as a number (\code{0.05}) or as a
+percentage string (\code{"5\%"}, \code{"-2.5\%"}).}
 
 \item{...}{A set of date-rate pairs.}
 }

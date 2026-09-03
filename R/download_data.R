@@ -21,7 +21,10 @@
 #' \item{\code{download_data}}{Called for its side-effect, downloading the
 #' data required. Returns an integer vector of the statuses of each download.}
 #' \item{\code{when_last_updated}}{The date the downloaded data was last retrieved, or
-#' the string \code{"Never"} if the file does not exist.}
+#' the string \code{"Never"} if the file does not exist. Note that this is the
+#' date of \emph{retrieval}, not the ABS release the data came from: the mirror
+#' tracks the ABS, so two sessions running the same package version at
+#' different times may see different index histories.}
 #' \item{\code{grattanInflators_has_no_data}}{\code{TRUE} if no data has ever been
 #' received (or package directory removed); likely due to no internet connection.}
 #' }
@@ -94,20 +97,86 @@ extdata_series_id <- function(series_id) {
   out
 }
 
+# Reads a two-column date/value TSV as downloaded from the ABS-Catalogue
+# mirror. Errors if the file is not a usable index.
+read_series_tsv <- function(path, strict = TRUE) {
+  # Preserve the source tokens until malformed values have been distinguished
+  # from the blank/NA boundary scaffolding present in some ABS series.
+  ans <- fread(path, sep = "\t", colClasses = "character", na.strings = NULL)
+  if (!hasName(ans, "date") || !hasName(ans, "value")) {
+    stop("`", path, "` had columns ", toString(names(ans)),
+         " but a series file must have columns `date` and `value`.")
+  }
+  ans <- ans[, c("date", "value"), with = FALSE]
+  date <- .subset2(ans, "date")
+  if (inherits(date, "Date") || inherits(date, "IDate")) {
+    date <- as.IDate(date)
+  } else if (is.character(date)) {
+    date <- tryCatch(
+      fast_as_idate(date, check = 2L),
+      error = function(e) {
+        stop("Downloaded series contains missing or unparseable observations.",
+             call. = FALSE)
+      }
+    )
+  } else {
+    stop("Downloaded series contains an invalid `date` column.")
+  }
+  raw_value <- .subset2(ans, "value")
+  trimmed_value <- trimws(raw_value)
+  explicit_missing <- is.na(raw_value) |
+    trimmed_value == "" |
+    trimmed_value == "NA"
+  value <- suppressWarnings(as.double(raw_value))
+  malformed <- is.na(value) & !explicit_missing
+  if (any(malformed)) {
+    stop("Downloaded series contains nonnumeric values.")
+  }
+  if (anyNA(date)) {
+    stop("Downloaded series contains missing or unparseable observations.")
+  }
+  if (anyNA(value)) {
+    if (isTRUE(strict)) {
+      stop("Downloaded series contains missing or unparseable observations.")
+    }
+    present <- which(!is.na(value))
+    if (!length(present) || anyNA(value[present[1L]:present[length(present)]])) {
+      stop("Downloaded series contains missing or unparseable observations.")
+    }
+    keep <- present[1L]:present[length(present)]
+    date <- date[keep]
+    value <- value[keep]
+  }
+  data.table(date = date, value = value)
+}
+
+read_cached_series <- function(path, series_id) {
+  out <- read_series_tsv(path, strict = FALSE)
+  validate_index(out, var = series_id)
+  out
+}
+
 fread_extdata_series_id <- function(series_id) {
-  if (!file.exists(extdata_series_id(series_id)) || !file.size(extdata_series_id(series_id))) {
+  path <- extdata_series_id(series_id)
+  if (!file.exists(path) || !file.size(path)) {
     res <- download_data(series_id) # nocov
     if (sum(res, na.rm = TRUE)) {
       # message("download_data did not succeed.")
       return(data.table()) # nocov
     }
   }
-  ans <- fread(extdata_series_id(series_id), sep = "\t")
-  stopifnot(hasName(ans, "date"))
-  stopifnot(hasName(ans, "value"))
-  value <- NULL
-  ans[, value := as.double(value)]
-  ans[complete.cases(ans)]
+  tryCatch(
+    # Older cache files can contain a rectangular calendar scaffold with
+    # unavailable leading/trailing values. Preserve compatibility with those
+    # files, but still reject malformed dates and any missing interior value.
+    read_cached_series(path, series_id),
+    error = function(e) {
+      stop("The cached file for series ", series_id,
+           " is not a valid index and was not cached in memory. Run ",
+           "download_data(\"", series_id, "\") to refresh it.\n\t",
+           conditionMessage(e), call. = FALSE)
+    }
+  )
 }
 
 file_splitter <- function(series_id) {
@@ -141,7 +210,15 @@ download_data <- function(series_id = NULL) {
       if (!nzchar(sid)) {
         return(NA_integer_)
       }
-      tempf <- tempfile(fileext = ".tsv")
+      destfile <- extdata_series_id(sid)
+      # Download into the destination directory so that the preferred final
+      # move is an atomic same-filesystem rename. On platforms that cannot
+      # replace an existing file by rename, the fallback copy is non-atomic;
+      # the retained backup aids recovery, and every cache read is validated.
+      tempf <- tempfile(pattern = paste0(sid, "-"),
+                        tmpdir = dirname(destfile),
+                        fileext = ".tsv.tmp")
+      on.exit(unlink(tempf), add = TRUE)
       sid_url <- find_hughparsonage_abs_catalogue(sid)
       status <- tryCatch(download.file(sid_url, tempf, mode = "wb", quiet = TRUE),
                          error = function(e) {
@@ -157,17 +234,36 @@ download_data <- function(series_id = NULL) {
 
       # nocov start
       if (status) {
-        return(status)
+        return(as.integer(status))
       }
-      copy_status <- file.copy(tempf, extdata_series_id(sid), overwrite = TRUE)
-      file.remove(tempf)
-      if (!copy_status) {
+      # Validate the whole file before it is allowed to replace a usable cache.
+      bad <- tryCatch({
+        # ABS series can include unavailable leading/trailing calendar
+        # scaffold rows. Trim only those boundary gaps; an interior missing
+        # observation remains an error.
+        validate_index(read_series_tsv(tempf, strict = FALSE), var = sid)
+        NULL
+      }, error = function(e) conditionMessage(e))
+      if (!is.null(bad)) {
+        message("The file downloaded for series ", sid,
+                " is not a valid index, so the existing data has been kept.\n\t", bad)
+        return(4L)
+      }
+      # keep the previous version, so a bad replacement can be undone
+      if (file.exists(destfile)) {
+        file.copy(destfile, paste0(destfile, ".bak"), overwrite = TRUE)
+      }
+      if (!file.rename(tempf, destfile) &&
+          !file.copy(tempf, destfile, overwrite = TRUE)) {
         message("File rename did not succeed", ".\n\t",
                 "downloaded file: ", tempf, "\n\t",
-                "intended destfile: ", extdata_series_id(sid))
-        status <- 3L
+                "intended destfile: ", destfile)
+        return(3L)
       }
-      return(as.integer(status))
+      # The disk file has changed, so any copy already loaded in this session
+      # is stale and must not be used again.
+      RM_SERIES(sid)
+      return(0L)
       # nocov end
     })
   if (!sum(ans, na.rm = TRUE)) {
@@ -197,8 +293,3 @@ grattanInflators_has_no_data <- function() {
     !length(dir(tools::R_user_dir("grattanInflators", which = "data"),
                 pattern = "\\.tsv$"))
 }
-
-
-
-
-

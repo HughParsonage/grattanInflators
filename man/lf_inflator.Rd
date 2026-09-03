@@ -28,15 +28,19 @@ lfi_trend(..., FORECAST = FALSE, LEVEL = "mean")
 range close to the previous year is used.}
 
 \item{check}{\code{integer(1)} If \code{0L}, no checks are performed, and
-clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
-an error is performed for bad input; \code{check = 2L} is more thorough.}
+clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L},
+invalid input errors and extrapolation warns. If \code{check = 2L}, dates
+outside the exact index endpoints error instead of being extrapolated.}
 
 \item{series}{A call to `lfi_original()`, `lfi_seasonal()`, or `lfi_trend()`.}
 
 \item{fy_month}{The month to be used in `series` for financial years.}
 
-\item{x}{(Advanced) A vector that will be inflated in-place. If \code{NULL},
-the default, the return vector is simply the inflation factor for `from`.}
+\item{x}{(Advanced) A double vector that will be inflated in-place. If
+\code{NULL}, the default, the return vector is simply the inflation factor
+for `from`. Since `x` is modified in place, any other name bound to the same
+object is modified too; an integer `x` is coerced to double, which copies, so
+in that case use the return value.}
 
 \item{nThread}{Number of threads to use.}
 

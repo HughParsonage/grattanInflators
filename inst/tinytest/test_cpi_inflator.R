@@ -1,3 +1,12 @@
+# This file needs the mirrored ABS data. Every other test file must run
+# without it, so that a machine with no internet access still exercises the
+# parsers, the native bounds checks and the synthetic-index arithmetic.
+# Skipping (never failing) if the data is absent or unreadable.
+if (!isFALSE(tryCatch(grattanInflators::grattanInflators_has_no_data(),
+                      error = function(e) TRUE))) {
+  exit_file("No ABS data available (no internet connection?)")
+}
+
 library(tinytest)
 library(grattanInflators)
 library(data.table)
@@ -87,11 +96,19 @@ expect_equal(cpi_inflator("2019-Q1", "2020-Q1"),
              cpi_inflator("2019-01-01", "2020-01-01"))
 expect_error(cpi_inflator("2019-Q1", "2020-Q5"))
 
-if (Sys.Date() < as.Date("2025-01-01")) {
-  expect_equal(cpi_inflator("2026-01-01", "2027-01-01", series = cpi_seasonal(2026, 0.05, 2027, 0.05)), 1.05)
-  expect_equal(cpi_inflator("2026-01-01", "2027-01-01", series = cpi_seasonal("2025-26", 0.05, "2026-27", 0.05)), 1.05)
-  expect_equal(cpi_inflator("2025-01-01", "2026-01-01", series = cpi_original(2025, 0.1)), 1.1)
-}
-
+# Custom series, well beyond the end of the published series so that the test
+# does not expire as the calendar advances.
+expect_equal(cpi_inflator("2071-01-01", "2072-01-01",
+                          series = cpi_seasonal(2071, 0.05, 2072, 0.05)),
+             1.05, tolerance = 1e-8)
+expect_equal(cpi_inflator("2071-01-01", "2072-01-01",
+                          series = cpi_seasonal("2070-71", 0.05, "2071-72", 0.05)),
+             1.05, tolerance = 1e-8)
+expect_equal(cpi_inflator("2071-01-01", "2072-01-01",
+                          series = cpi_original(2071, 0.1)),
+             1.1, tolerance = 1e-8)
+expect_equal(cpi_inflator("2071-01-01", "2072-01-01",
+                          series = cpi_original("10%")),
+             1.1, tolerance = 1e-8)
 
 

@@ -132,6 +132,13 @@ const static int IDATE_BY_YEARMONTH_SINCE_1948_JAN_1ST[1536] = {
 
 #define ARR IDATE_BY_YEARMONTH_SINCE_1948_JAN_1ST
 
+// Every component must be validated before ARR is indexed: in particular a
+// month of zero would index ARR[-1].
+#define VALID_YMD(y_, m_, d_)                            \
+  ((y_) >= MIN_YEAR && (y_) <= MAX_YEAR &&               \
+   (m_) >= 1 && (m_) <= 12 &&                            \
+   (d_) >= 1 && (d_) <= 31)
+
 unsigned int bsearch_nrst(register int x, unsigned int lwr, unsigned int upr) {
   unsigned int d = upr - lwr;
   if (d <= 1) {
@@ -165,9 +172,15 @@ unsigned int p_search(int x) {
     // 2013
     // p = bsearch_nrst(x, 263, 781);
     return bsearch_nrst(x, 263, 781);
-  } else {
-    return bsearch_nrst(x, 780, 1535);
   }
+  // bsearch_nrst(x, lwr, upr) can only return up to upr - 1, so the final
+  // month of the table (December 2075) has to be recognised here. Without
+  // this, dates in Dec-2075 -- which are inside the supported range -- were
+  // reported as November, and format_1_idate() produced days beyond 31.
+  if (x >= ARR[1535]) {
+    return 1535;
+  }
+  return bsearch_nrst(x, 780, 1535);
 }
 
 YearMonth idate2YearMonth(int x) {
@@ -191,6 +204,9 @@ SEXP C_Year(SEXP IDates, SEXP nthreads) {
   }
   int nThread = as_nThread(nthreads);
   R_xlen_t N = xlength(IDates);
+  if (N == 0) {
+    return allocVector(INTSXP, 0);
+  }
   const int * xp = INTEGER(IDates);
   int min_idate = xp[0];
   int max_idate = xp[0];
@@ -222,14 +238,14 @@ SEXP C_Year(SEXP IDates, SEXP nthreads) {
 static int string102year(const char * x) {
   switch(x[0]) {
   case '1':
-    if (x[1] == '9' && isdigit(x[2]) && isdigit(x[3])) {
+    if (x[1] == '9' && gi_isdigit(x[2]) && gi_isdigit(x[3])) {
       return 1900 + 10 * (x[2] - '0') + (x[3] - '0');
     } else {
       return NA_INTEGER;
     }
     break;
   case '2':
-    if (x[1] == '0' && isdigit(x[2]) && isdigit(x[3])) {
+    if (x[1] == '0' && gi_isdigit(x[2]) && gi_isdigit(x[3])) {
       return 2000 + 10 * (x[2] - '0') + (x[3] - '0');
     } else {
       return NA_INTEGER;
@@ -268,108 +284,202 @@ typedef enum {
   yyyy_mm_dd,
   dd_mm_yyyy,
   ddbbyyyy
+} dateorder;
+
+typedef struct {
+  dateorder order;
+  char separator;
 } dateformat;
 
+// An unknown format must be an error: silently reinterpreting it as some
+// other known format produces plausible but wrong dates.
 dateformat encode_format(SEXP x) {
-  if (!isString(x)) {
-    error("`Format` must be type character but is type '%s'", type2char(TYPEOF(x)));
+  if (!isString(x) || xlength(x) != 1 || STRING_ELT(x, 0) == NA_STRING) {
+    error("`format` must be a single, non-missing string.");
   }
   const char * xi = CHAR(STRING_ELT(x, 0));
-  if (xi[0] != '%') {
-    return yyyy_mm_dd;
+  if (!strcmp(xi, "%Y-%m-%d") || !strcmp(xi, "%Y/%m/%d") || !strcmp(xi, "%Y.%m.%d")) {
+    dateformat ans = { .order = yyyy_mm_dd, .separator = xi[2] };
+    return ans;
   }
   if (!strcmp(xi, "%d%b%Y") || !strcmp(xi, "%d%B%Y")) {
-    return ddbbyyyy;
+    dateformat ans = { .order = ddbbyyyy, .separator = '\0' };
+    return ans;
   }
-  if (!strcmp(xi, "%d/%m/%Y")) {
-    return dd_mm_yyyy;
+  if (!strcmp(xi, "%d/%m/%Y") || !strcmp(xi, "%d-%m-%Y") || !strcmp(xi, "%d.%m.%Y")) {
+    dateformat ans = { .order = dd_mm_yyyy, .separator = xi[2] };
+    return ans;
   }
-
-  return yyyy_mm_dd;
+  error("`format = \"%s\"` is not supported. Supported formats are "
+        "\"%%Y-%%m-%%d\", \"%%d/%%m/%%Y\", \"%%d-%%m-%%Y\" and \"%%d%%b%%Y\".",
+        xi);
+  dateformat ans = { .order = yyyy_mm_dd, .separator = '-' }; // # nocov
+  return ans; // # nocov
 }
 
-// xi must have nchar 10
-static void dd_mm_yyyy2YearMonth(int * year, unsigned int * month, const char * xi) {
-  *year += xi[6] - '0';
-  *year *= 10;
-  *year += xi[7] - '0';
-  *year *= 10;
-  *year += xi[8] - '0';
-  *year *= 10;
-  *year += xi[9] - '0';
-
-  *month = (xi[3] == '1' ? 10 : 0) + (xi[4] - '0');
+// Read `n` consecutive digits starting at x[at]; returns -1 if any is not an
+// ASCII digit. Used so that a malformed component becomes NA rather than an
+// arbitrary integer.
+static int read_digits(const char * x, int at, int n) {
+  int o = 0;
+  for (int j = at; j < at + n; ++j) {
+    if (!gi_isdigit(x[j])) {
+      return -1;
+    }
+    o = 10 * o + (x[j] - '0');
+  }
+  return o;
 }
 
-static void d_mm_yyyy2YearMonth(int * year, unsigned int * month, const char * xi) {
-  *year += xi[5] - '0';
-  *year *= 10;
-  *year += xi[6] - '0';
-  *year *= 10;
-  *year += xi[7] - '0';
-  *year *= 10;
-  *year += xi[8] - '0';
-
-  *month = (xi[2] == '1' ? 10 : 0) + (xi[3] - '0');
+// Parses d[d]<sep>m[m]<sep>yyyy, where <sep> is '-', '/' or '.'. Scanning
+// rather than reading fixed offsets means the one- and two-digit day and month
+// variants are handled by the same (validated) code path.
+static bool parse_dmy(const char * xi, int n, char separator,
+                      int * year, int * month, int * mday) {
+  int at = 0;
+  int d = 0, m = 0, y = 0, nd = 0, nm = 0;
+  while (at < n && nd < 2 && gi_isdigit(xi[at])) {
+    d = 10 * d + (xi[at] - '0');
+    ++at;
+    ++nd;
+  }
+  if (nd == 0 || at >= n || xi[at] != separator) {
+    return false;
+  }
+  ++at;
+  while (at < n && nm < 2 && gi_isdigit(xi[at])) {
+    m = 10 * m + (xi[at] - '0');
+    ++at;
+    ++nm;
+  }
+  if (nm == 0 || at >= n || xi[at] != separator) {
+    return false;
+  }
+  ++at;
+  if (n - at != 4) {
+    return false;
+  }
+  y = read_digits(xi, at, 4);
+  if (y < 0) {
+    return false;
+  }
+  *year = y;
+  *month = m;
+  *mday = d;
+  return true;
 }
 
-static void d_m_yyyy2YearMonth(int * year, unsigned int * month, const char * xi) {
-  *year += xi[4] - '0';
-  *year *= 10;
-  *year += xi[5] - '0';
-  *year *= 10;
-  *year += xi[6] - '0';
-  *year *= 10;
-  *year += xi[7] - '0';
+static char ascii_tolower(char x) {
+  return (x >= 'A' && x <= 'Z') ? x + ('a' - 'A') : x;
+}
 
-  *month = xi[2] - '0';
+static bool month_is(const char * x, const char * month) {
+  return ascii_tolower(x[0]) == month[0] &&
+    ascii_tolower(x[1]) == month[1] &&
+    ascii_tolower(x[2]) == month[2];
+}
+
+// Parse an English abbreviated month only when all three letters match. The
+// old first-letter dispatch interpreted malformed tokens such as "Fxx" as
+// February and returned a plausible date.
+static int parse_month_abbrev(const char * x) {
+  static const char * MONTHS[12] = {
+    "jan", "feb", "mar", "apr", "may", "jun",
+    "jul", "aug", "sep", "oct", "nov", "dec"
+  };
+  for (int i = 0; i < 12; ++i) {
+    if (month_is(x, MONTHS[i])) {
+      return i + 1;
+    }
+  }
+  return -1;
+}
+
+static bool valid_calendar_mday(int year, int month, int mday) {
+  static const int MDAYS[12] = {
+    31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
+  };
+  int max_mday = MDAYS[month - 1];
+  bool leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+  if (month == 2 && leap) {
+    ++max_mday;
+  }
+  return mday <= max_mday;
 }
 
 // xi must have nchar 9
-static void ddbbyyyy2YearMonth(int * year, unsigned int * month, const char * xi) {
-  *year += xi[5] - '0';
-  *year *= 10;
-  *year += xi[6] - '0';
-  *year *= 10;
-  *year += xi[7] - '0';
-  *year *= 10;
-  *year += xi[8] - '0';
+static void ddbbyyyy2YearMonth(int * year, int * month, const char * xi) {
+  *year = read_digits(xi, 5, 4);
+  *month = parse_month_abbrev(xi + 2);
+}
 
-  switch(xi[2]) {
-  case 'J':
-    switch(xi[3]) {
-    case 'A':
-    case 'a':
-      *month = 1;
-      return;
-    case 'u':
-    case 'U':
-      *month = 6 + (xi[4] == 'l' || xi[4] == 'L');
-      return;
+// Parse one string without touching the R API. Keeping this separate from the
+// CHARSXP extraction lets the expensive part run safely in parallel.
+static int parse_1_idate(const char * xi, int n, dateformat format,
+                         bool incl_day, int check) {
+  int year_i = -1;
+  int month_i = -1;
+  int parsed_mday = -1;
+
+  switch (format.order) {
+  case yyyy_mm_dd:
+    if (n != 10) {
+      return NA_INTEGER;
+    }
+    if (xi[4] != format.separator || xi[7] != format.separator) {
+      return NA_INTEGER;
+    }
+    year_i = string102year(xi);
+    month_i = string102month(xi);
+    parsed_mday = (incl_day || check >= 1) ? read_digits(xi, 8, 2) : 1;
+    break;
+  case dd_mm_yyyy:
+    if (n < 8 || n > 10 ||
+        !parse_dmy(xi, n, format.separator,
+                   &year_i, &month_i, &parsed_mday)) {
+      return NA_INTEGER;
     }
     break;
-  case 'F':
-    *month = 2;
-    return;
-  case 'M':
-    *month = (xi[4] == 'r' || xi[4] == 'R') ? 3 : 5;
-    return;
-  case 'A':
-    *month = (xi[3] == 'p' || xi[3] == 'P') ? 4 : 8;
-    return;
-  case 'S':
-    *month = 9;
-    return;
-  case 'O':
-    *month = 10;
-    return;
-  case 'N':
-    *month = 11;
-    return;
-  case 'D':
-    *month = 12;
-    return;
+  case ddbbyyyy:
+    if (n != 9) {
+      return NA_INTEGER;
+    }
+    ddbbyyyy2YearMonth(&year_i, &month_i, xi);
+    parsed_mday = (incl_day || check >= 1) ? read_digits(xi, 0, 2) : 1;
+    break;
   }
+
+  int validated_mday = (incl_day || check >= 1) ? parsed_mday : 1;
+  int mday_i = incl_day ? parsed_mday : 1;
+  if (!VALID_YMD(year_i, month_i, validated_mday) ||
+      (check >= 2 && !valid_calendar_mday(year_i, month_i, parsed_mday))) {
+    return NA_INTEGER;
+  }
+  return ARR[12 * (year_i - MIN_YEAR) + (month_i - 1)] + mday_i - 1;
+}
+
+static void invalid_date_error(R_xlen_t i, const char * x, int n,
+                               dateformat format, const char * format_string) {
+  if (format.order == yyyy_mm_dd) {
+    if (n == 7) {
+      error("`x[%lld] = %s` is not a valid fy or date; expected YYYY-mm-dd.",
+            (long long)i + 1, x);
+    }
+    if (n < 4 || !starts_with_yyyy(x, n)) {
+      error("`x[%lld] = %s` must start with YYYY.", (long long)i + 1, x);
+    }
+    int year_i = read_digits(x, 0, 4);
+    if (year_i < MIN_YEAR || year_i > MAX_YEAR) {
+      error("`x[%lld] = %s`: Years must be between %d and %d.",
+            (long long)i + 1, x, MIN_YEAR, MAX_YEAR);
+    }
+    if (n >= 7 && string102month(x) == NA_INTEGER) {
+      error("`x[%lld] = %s`: Month component invalid.",
+            (long long)i + 1, x);
+    }
+  }
+  error("`x[%lld] = %s` could not be parsed as a date in format \"%s\".",
+        (long long)i + 1, x, format_string);
 }
 
 // Guess format
@@ -389,108 +499,166 @@ SEXP C_guess_date_format(SEXP x) {
       continue;
     }
     const char * xi = CHAR(xp[i]);
-    if (starts_with_yyyy(xi)) {
-      return ScalarString(mkCharCE("%Y-%m-%d", CE_UTF8));
+    if (n == 10 && starts_with_yyyy(xi, n) &&
+        gi_issep(xi[4]) && xi[4] == xi[7]) {
+      switch(xi[4]) {
+      case '-':
+        return ScalarString(mkCharCE("%Y-%m-%d", CE_UTF8));
+      case '/':
+        return ScalarString(mkCharCE("%Y/%m/%d", CE_UTF8));
+      case '.':
+        return ScalarString(mkCharCE("%Y.%m.%d", CE_UTF8));
+      }
     }
-    if (isalpha(xi[2])) {
+    if (gi_isalpha(xi[2])) {
       return ScalarString(mkCharCE("%d%b%Y", CE_UTF8));
     }
-    if (xi[0] >= '0' && xi[0] <= '2' && isdigit(xi[1]) && !isdigit(xi[2])) {
-      return ScalarString(mkCharCE("%d-%m-%Y", CE_UTF8));
+    // Day-first: the leading component may be up to 31, so '3' must be
+    // admitted as a first character.
+    if (xi[0] >= '0' && xi[0] <= '3' && gi_isdigit(xi[1]) &&
+        gi_issep(xi[2]) && xi[2] == xi[n - 5]) {
+      // report the separator actually used, since the encoder distinguishes them
+      switch(xi[2]) {
+      case '/':
+        return ScalarString(mkCharCE("%d/%m/%Y", CE_UTF8));
+      case '.':
+        return ScalarString(mkCharCE("%d.%m.%Y", CE_UTF8));
+      default:
+        return ScalarString(mkCharCE("%d-%m-%Y", CE_UTF8));
+      }
     }
   }
   return R_NilValue;
 }
 
 // ignores mday by default
-SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP Format, SEXP nthreads) {
+SEXP C_fastIDate(SEXP x, SEXP IncludeDay, SEXP Check, SEXP Format, SEXP nthreads) {
   int nThread = as_nThread(nthreads);
   if (!isString(x)) {
     error("Expected a STRSXP."); // # nocov
   }
   const bool incl_day = asLogical(IncludeDay);
+  const int check = asInteger(Check);
   dateformat format = encode_format(Format);
   const SEXP * xp = STRING_PTR_RO(x);
   R_xlen_t N = xlength(x);
 
   SEXP ans = PROTECT(allocVector(INTSXP, N));
   int * restrict ansp = INTEGER(ans);
-  switch(format) {
-  case yyyy_mm_dd:
-    FORLOOP({
-      int n = length(xp[i]);
-      const char * xi = CHAR(xp[i]);
-      if (n != 10) {
-        ansp[i] = NA_INTEGER;
-        continue;
+  if (N == 0) {
+    UNPROTECT(1);
+    return ans;
+  }
+
+  // R's string accessors are not thread-safe. Extract a bounded batch of raw
+  // pointers on the main thread, then parse that batch in parallel without R
+  // API calls. The fixed-size workspace keeps memory bounded even for vectors
+  // with billions of elements.
+  const R_xlen_t max_chunk = 1 << 20;
+  const R_xlen_t chunk_capacity = N < max_chunk ? N : max_chunk;
+  const char ** strings = (const char **)R_alloc(chunk_capacity, sizeof(*strings));
+  int * lengths = (int *)R_alloc(chunk_capacity, sizeof(*lengths));
+  int * string_ids = (int *)R_alloc(chunk_capacity, sizeof(*string_ids));
+  int * parsed_values = (int *)R_alloc(chunk_capacity, sizeof(*parsed_values));
+  const unsigned int cache_capacity = 1 << 16;
+  const unsigned int cache_mask = cache_capacity - 1;
+  SEXP * cache_keys = (SEXP *)R_alloc(cache_capacity, sizeof(*cache_keys));
+  int * cache_ids = (int *)R_alloc(cache_capacity, sizeof(*cache_ids));
+  for (R_xlen_t base = 0; base < N; base += chunk_capacity) {
+    R_xlen_t chunk_n = N - base;
+    if (chunk_n > chunk_capacity) {
+      chunk_n = chunk_capacity;
+    }
+    // Repeated dates are common in large inflator workloads. Parse a uniform
+    // batch once, while still filling the result in parallel.
+    SEXP first = xp[base];
+    bool all_same = true;
+    for (R_xlen_t j = 1; j < chunk_n; ++j) {
+      if (xp[base + j] != first) {
+        all_same = false;
+        break;
       }
-      ansp[i] = 0;
-      int year_i = string102year(xi);
-      unsigned int month_i = string102month(xi);
-      if (year_i < 1948 || year_i > 2075 || month_i > 12) {
-        ansp[i] = NA_INTEGER;
-        continue;
+    }
+    if (all_same) {
+      const char * string = first == NA_STRING ? NULL : CHAR(first);
+      int string_length = first == NA_STRING ? 0 : length(first);
+      int parsed = string == NULL ? NA_INTEGER :
+        parse_1_idate(string, string_length, format, incl_day, check);
+#if defined _OPENMP
+#pragma omp parallel for num_threads(nThread) schedule(static)
+#endif
+      for (R_xlen_t j = 0; j < chunk_n; ++j) {
+        ansp[base + j] = parsed;
       }
-      ansp[i] = ARR[12 * (year_i - 1948) + (month_i - 1)];
-      if (incl_day) {
-        ansp[i] += 10 * (xi[8] - '0') + (xi[9] - '0') - 1;
+      if (check >= 1 && string != NULL && parsed == NA_INTEGER) {
+        invalid_date_error(base, string, string_length, format,
+                           CHAR(STRING_ELT(Format, 0)));
       }
-    })
-    break;
-  case dd_mm_yyyy:
-    FORLOOP({
-      int n = length(xp[i]);
-      const char * xi = CHAR(xp[i]);
-      if (n < 8 || n > 10) {
-        ansp[i] = NA_INTEGER;
-        continue;
-      }
-      ansp[i] = 0;
-      int year_i = 0;
-      unsigned int month_i = 0;
-      if (n == 10) {
-        dd_mm_yyyy2YearMonth(&year_i, &month_i, xi);
-      } else if (n == 9) {
-         d_mm_yyyy2YearMonth(&year_i, &month_i, xi);
+      continue;
+    }
+    for (unsigned int k = 0; k < cache_capacity; ++k) {
+      cache_keys[k] = NULL;
+    }
+    SEXP previous = R_NilValue;
+    int previous_id = -1;
+    int n_distinct = 0;
+    for (R_xlen_t j = 0; j < chunk_n; ++j) {
+      SEXP elt = xp[base + j];
+      if (elt == NA_STRING) {
+        string_ids[j] = -1;
+      } else if (elt == previous) {
+        string_ids[j] = previous_id;
       } else {
-        d_m_yyyy2YearMonth(&year_i, &month_i, xi);
-      }
-      if (year_i < 1948 || year_i > 2075 || month_i > 12) {
-        ansp[i] = NA_INTEGER;
-        continue;
-      }
-      ansp[i] = ARR[12 * (year_i - 1948) + (month_i - 1)];
-      if (incl_day) {
-        if (n == 10 || isdigit(xi[1])) {
-          ansp[i] += 10 * (xi[0] - '0') + (xi[1] - '0') - 1;
+        unsigned int slot = ((uintptr_t)elt >> 3) & cache_mask;
+        if (cache_keys[slot] == elt) {
+          string_ids[j] = cache_ids[slot];
         } else {
-          ansp[i] += (xi[0] - '0') - 1;
+          string_ids[j] = n_distinct;
+          strings[n_distinct] = CHAR(elt);
+          lengths[n_distinct] = length(elt);
+          cache_keys[slot] = elt;
+          cache_ids[slot] = n_distinct;
+          ++n_distinct;
+        }
+        previous = elt;
+        previous_id = string_ids[j];
+      }
+    }
+    if (n_distinct < chunk_n / 2) {
+#if defined _OPENMP
+#pragma omp parallel for num_threads(nThread) schedule(static)
+#endif
+      for (int id = 0; id < n_distinct; ++id) {
+        parsed_values[id] = parse_1_idate(strings[id], lengths[id], format,
+                                          incl_day, check);
+      }
+#if defined _OPENMP
+#pragma omp parallel for num_threads(nThread) schedule(static)
+#endif
+      for (R_xlen_t j = 0; j < chunk_n; ++j) {
+        int id = string_ids[j];
+        ansp[base + j] = id < 0 ? NA_INTEGER : parsed_values[id];
+      }
+    } else {
+#if defined _OPENMP
+#pragma omp parallel for num_threads(nThread) schedule(static)
+#endif
+      for (R_xlen_t j = 0; j < chunk_n; ++j) {
+        int id = string_ids[j];
+        ansp[base + j] = id < 0 ? NA_INTEGER :
+          parse_1_idate(strings[id], lengths[id], format, incl_day, check);
+      }
+    }
+    if (check >= 1) {
+      for (R_xlen_t j = 0; j < chunk_n; ++j) {
+        int id = string_ids[j];
+        if (id >= 0 && ansp[base + j] == NA_INTEGER) {
+          R_xlen_t i = base + j;
+          invalid_date_error(i, strings[id], lengths[id], format,
+                             CHAR(STRING_ELT(Format, 0)));
         }
       }
-    })
-    break;
-  case ddbbyyyy:
-    FORLOOP({
-      int n = length(xp[i]);
-      const char * xi = CHAR(xp[i]);
-      if (n != 9) {
-        ansp[i] = NA_INTEGER;
-        continue;
-      }
-      ansp[i] = 0;
-      int year_i = 0;
-      unsigned int month_i = 0;
-      ddbbyyyy2YearMonth(&year_i, &month_i, xi);
-      if (year_i < 1948 || year_i > 2075 || month_i > 12) {
-        ansp[i] = NA_INTEGER;
-        continue;
-      }
-      ansp[i] = ARR[12 * (year_i - 1948) + (month_i - 1)];
-      if (incl_day) {
-        ansp[i] += 10 * (xi[0] - '0') + (xi[1] - '0') - 1;
-      }
-    })
-    break;
+    }
   }
   UNPROTECT(1);
   return ans;
@@ -558,10 +726,3 @@ int yqi(YearMonth YM) {
   i += MONTH_TO_QUARTER[YM.month];
   return i;
 }
-
-
-
-
-
-
-

@@ -1,5 +1,41 @@
 #include "grattanInflator.h"
 
+static inline bool idate_index_position(R_xlen_t * position,
+                                        int idate,
+                                        unsigned int index_first_month,
+                                        unsigned int months_per_period,
+                                        R_xlen_t index_len) {
+  if (idate == NA_INTEGER || idate < MIN_IDATE || idate > MAX_IDATE) {
+    return false;
+  }
+
+  const unsigned int month = p_search(idate);
+  R_xlen_t offset;
+  if (months_per_period == 3) {
+    // Quarterly observations are calendar quarters in the generic kernel,
+    // including indices dated in their quarter's final month.
+    const unsigned int quarter = month / 3;
+    const unsigned int first_quarter = index_first_month / 3;
+    if (quarter < first_quarter) {
+      return false;
+    }
+    offset = quarter - first_quarter;
+  } else {
+    // Monthly indices use exact months. Annual indices can be anchored in any
+    // month, so their year changes at that anchor rather than in January.
+    if (month < index_first_month) {
+      return false;
+    }
+    offset = (month - index_first_month) / months_per_period;
+  }
+  if (offset >= index_len) {
+    return false;
+  }
+
+  *position = offset;
+  return true;
+}
+
 
 
 
@@ -16,115 +52,69 @@ SEXP C_Inflate2(SEXP ans, SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SE
     return R_NilValue; // # nocov
   }
   R_xlen_t N = N_x;
+  // `ans` is the user's `x`, written to in place. Its type and length must be
+  // established here, not merely by the R wrapper: this is an exported native
+  // entry point and writing past the end of `x` would corrupt memory.
+  if (!isReal(ans)) {
+    error("`x` was type '%s' but must be a double vector.", type2char(TYPEOF(ans)));
+  }
+  if (XLENGTH(ans) != N) {
+    error("`length(x) = %lld` but `%lld` values are required (the length of `from`).",
+          (long long)XLENGTH(ans), (long long)N);
+  }
   if (!isReal(Index)) {
     error("Index was type '%s' REALSXP which is not supported.", type2char(TYPEOF(Index))); // # nocov
   }
+  if (xlength(Index) == 0) {
+    error("`index` had zero values, so no inflator can be computed."); // # nocov
+  }
   const double * index = REAL(Index);
-  const unsigned int index_len = length(Index);
+  const R_xlen_t index_len = xlength(Index);
 
-  int index_min = asInteger(IndexMinIDate);
-  int freq = asInteger(IndexFreq);
-  const unsigned int div = 12 / freq;
-  const unsigned int p_index_min = p_search(index_min) / div;
+  const int index_min = asInteger(IndexMinIDate);
+  if (index_min == NA_INTEGER || index_min < MIN_IDATE || index_min > MAX_IDATE) {
+    error("The first index date is outside the supported date range."); // # nocov
+  }
+  const int freq = asInteger(IndexFreq);
+  if (freq != 1 && freq != 4 && freq != 12) {
+    error("Index frequency was %d; only annual, quarterly, and monthly indices are supported.", freq); // # nocov
+  }
+  const unsigned int months_per_period = 12 / freq;
+  const unsigned int index_first_month = p_search(index_min);
   double * ansp = REAL(ans);
-  switch(freq) {
-  case 12:
-    if (N_y == 1) {
-      const unsigned int y_p = (p_search(yp[0])) - p_index_min;
-      if (y_p >= index_len) {
-        // # nocov start
-        FORLOOP({
-          ansp[i] = NaN;
-        })
-        break;
-        // # nocov end
-      }
-      const double iyp = index[y_p];
-      FORLOOP({
-        unsigned int x_p = (p_search(xp[i])) - p_index_min;
-        if (x_p >= index_len) {
-          ansp[i] = NaN;
-          continue;
-        }
-        ansp[i] *= iyp / index[x_p];
-      })
-    } else {
-      FORLOOP({
-        unsigned int x_p = (p_search(xp[i])) - p_index_min;
-        unsigned int y_p = (p_search(yp[i])) - p_index_min;
-        if (x_p >= index_len || y_p >= index_len) {
-          ansp[i] = NaN;
-          continue;
-        }
-        ansp[i] *= index[y_p] / index[x_p];
-      })
-    }
-    break;
-  case 4:
-    if (N_y == 1) {
-      const unsigned int y_p = (p_search(yp[0]) / 3) - p_index_min;
-      if (y_p >= index_len) {
-        // # nocov start
-        FORLOOP({
-          ansp[i] = NaN;
-        })
-        break;
-        // # nocov end
-      }
-      const double iyp = index[y_p];
 
+  if (N_y == 1) {
+    R_xlen_t y_p;
+    if (!idate_index_position(&y_p, yp[0], index_first_month,
+                              months_per_period, index_len)) {
       FORLOOP({
-        unsigned int x_p = (p_search(xp[i]) / 3) - p_index_min;
-        if (x_p >= index_len) {
-          ansp[i] = NaN;
-          continue;
-        }
-        ansp[i] *= iyp / index[x_p];
+        ansp[i] = NaN;
       })
-    } else {
-      FORLOOP({
-        unsigned int x_p = (p_search(xp[i]) / 3) - p_index_min;
-        unsigned int y_p = (p_search(yp[i]) / 3) - p_index_min;
-        if (x_p >= index_len || y_p >= index_len) {
-          ansp[i] = NaN;
-          continue;
-        }
-        ansp[i] *= index[y_p] / index[x_p];
-      })
+      return ans;
     }
-    break;
-  case 1:
-    if (N_y == 1) {
-      const unsigned int y_p = (p_search(yp[0]) / 12) - p_index_min;
-      if (y_p >= index_len) {
-        // # nocov start
-        FORLOOP({
-          ansp[i] = NaN;
-        })
-        break;
-        // # nocov end
+    const double iyp = index[y_p];
+    FORLOOP({
+      R_xlen_t x_p;
+      if (!idate_index_position(&x_p, xp[i], index_first_month,
+                                months_per_period, index_len)) {
+        ansp[i] = NaN;
+        continue;
       }
-      const double iyp = index[y_p];
-      FORLOOP({
-        unsigned int x_p = (p_search(xp[i]) / 12) - p_index_min;
-        if (x_p >= index_len) {
-          ansp[i] = NaN;
-          continue;
-        }
-        ansp[i] *= iyp / index[x_p];
-      })
-    } else {
-      FORLOOP({
-        unsigned int x_p = (p_search(xp[i]) / 12) - p_index_min;
-        unsigned int y_p = (p_search(yp[i]) / 12) - p_index_min;
-        if (x_p >= index_len || y_p >= index_len) {
-          ansp[i] = NaN;
-          continue;
-        }
-        ansp[i] *= index[y_p] / index[x_p];
-      })
-    }
-    break;
+      ansp[i] *= iyp / index[x_p];
+    })
+  } else {
+    FORLOOP({
+      R_xlen_t x_p;
+      R_xlen_t y_p;
+      if (!idate_index_position(&x_p, xp[i], index_first_month,
+                                months_per_period, index_len) ||
+          !idate_index_position(&y_p, yp[i], index_first_month,
+                                months_per_period, index_len)) {
+        ansp[i] = NaN;
+        continue;
+      }
+      ansp[i] *= index[y_p] / index[x_p];
+    })
   }
 
   return ans;
@@ -211,7 +201,11 @@ SEXP C_coalesce_forecast_12mo_avg(SEXP ans, SEXP From, SEXP To, SEXP Index, SEXP
             YM_from.year = ypi - MIN_YEAR;
             YM_from.month = 1;
 
-            double index_from = index[yqi(YM_from) - yqi(index_min_YM)];
+            int index_from_i = yqi(YM_from) - yqi(index_min_YM);
+            if (IDX_OOB(index_from_i, (R_xlen_t)index_len)) {
+              continue;
+            }
+            double index_from = index[index_from_i];
             ansp[i] = last_index / index_from; // provisionally
             int d_years = (ypi - index_max_yr);
             ansp[i] *= pow(r_future, d_years);
@@ -234,7 +228,5 @@ SEXP C_coalesce_forecast_12mo_avg(SEXP ans, SEXP From, SEXP To, SEXP Index, SEXP
   return ans;
 
 }
-
-
 
 

@@ -3,7 +3,7 @@
 SEXP C_YearMonthSplit(SEXP x, SEXP xClass, SEXP MonthFY, SEXP nthreads) {
   R_xlen_t N = xlength(x);
   int x_class = asInteger(xClass);
-  int month_fy = asInteger(MonthFY);
+  int month_fy = as_fy_month(MonthFY);
   int nThread = as_nThread(nthreads);
   YearMonth * x_YM = malloc(sizeof(YearMonth) * N);
   if (x_YM == NULL) {

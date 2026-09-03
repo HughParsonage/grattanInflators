@@ -61,6 +61,47 @@ SEXP C_minDate(SEXP x) {
   return ScalarString(mkCharCE(yyyy_mm, CE_UTF8));
 }
 
+SEXP C_maxYearMonth(SEXP x, SEXP FyMonth) {
+  if (TYPEOF(x) != STRSXP) {
+    error("`x` must be a character vector."); // # nocov
+  }
+  const int fy_month = as_fy_month(FyMonth);
+  const SEXP * xp = STRING_PTR_RO(x);
+  const R_xlen_t N = xlength(x);
+  int max_ym = -1;
+
+  // CHAR() and length() use the R API, so this scan must remain serial.
+  for (R_xlen_t i = 0; i < N; ++i) {
+    if (xp[i] == NA_STRING) {
+      continue;
+    }
+    const int n = length(xp[i]);
+    if (n != 7 && n != 10) {
+      continue;
+    }
+    YearMonth ym;
+    string2YearMonth(&ym, CHAR(xp[i]), n, fy_month);
+    if (!YM_valid(ym)) {
+      continue;
+    }
+    const int packed = 12 * (ym.year + MIN_YEAR) + ym.month;
+    if (packed > max_ym) {
+      max_ym = packed;
+    }
+  }
+
+  SEXP ans = PROTECT(allocVector(INTSXP, 2));
+  if (max_ym < 0) {
+    INTEGER(ans)[0] = NA_INTEGER;
+    INTEGER(ans)[1] = NA_INTEGER;
+  } else {
+    INTEGER(ans)[0] = (max_ym - 1) / 12;
+    INTEGER(ans)[1] = (max_ym - 1) % 12 + 1;
+  }
+  UNPROTECT(1);
+  return ans;
+}
+
 SEXP C_all_dates(SEXP x) {
   int n = MAX_IDATE - MIN_IDATE + 1;
   SEXP ans = PROTECT(allocVector(INTSXP, n));
@@ -73,32 +114,31 @@ SEXP C_all_dates(SEXP x) {
 }
 
 void iminmax(int xminmax[2], const int * xp, R_xlen_t N, const int fy_month, int nThread) {
-  int xmin = xp[0];
-  int xmax = xp[0];
-  if (xmin == NA_INTEGER) {
-    xmin = INT_MAX;
-    // xmax will be INT_MIN naturally; also can signal a totally constant xp
+  if (N <= 0) {
+    // An empty input has no minimum or maximum; these sentinels compare as
+    // "inside any range" so that callers report no violation.
+    xminmax[0] = INT_MAX;
+    xminmax[1] = INT_MIN;
+    return;
   }
+  int xmin = INT_MAX;
+  int xmax = INT_MIN;
 #if defined _OPENMP && _OPENMP >= 201511
 #pragma omp parallel for num_threads(nThread) reduction(min : xmin) reduction(max : xmax)
 #endif
-  for (R_xlen_t i = 1; i < N; ++i) {
-    int xpi = xp[i];
+  for (R_xlen_t i = 0; i < N; ++i) {
+    const int xpi = xp[i];
     if (xpi == NA_INTEGER) {
-      continue;
-    }
-    if (xpi >= xmin && xpi <= xmax) {
       continue;
     }
     if (xpi < xmin) {
       xmin = xpi;
-    } else {
+    }
+    if (xpi > xmax) {
       xmax = xpi;
     }
   }
   xminmax[0] = xmin;
   xminmax[1] = xmax;
 }
-
-
 

@@ -2,8 +2,10 @@
 #' @description A function to unit test the YearMonth struct directly
 
 YearMonthSplit <- function(x, nThread = 1L, fy_month = 6L) {
+  fy_month <- validate_fy_month(fy_month)
   x_class <- supported_classes(class(x))
-  .check_input(x, as.IDate("1948-01-01"), as.IDate("2075-12-31"), nThread = nThread, xclass = x_class)
+  .check_input(x, as.IDate("1948-01-01"), as.IDate("2075-12-31"),
+               nThread = nThread, fy_month = fy_month, xclass = x_class)
   .Call("C_YearMonthSplit", x, x_class, fy_month, nThread, PACKAGE = packageName())
 }
 
@@ -14,7 +16,6 @@ Year <- function(x, nThread = 1L) {
   }
   year(x) # nocov
 }
-
 
 
 

@@ -3,20 +3,23 @@
 #' @param from,to Times for which the inflator is desired. If \code{NULL}, a date
 #' range close to the previous year is used.
 #' @param series Which CPI series to use.
-#' @param fy_month An integer 1-12, the month to be used for
-#' years and financial years in \code{from} or \code{to}. Since the CPI is a
-#' quarterly series, specifying a year is ambiguous. For
-#' financial years, the month is the month of the financial year,
+#' @param fy_month An integer 1-12 used to locate financial-year inputs in the
+#' index. Ordinary integer years are represented by January and are unaffected
+#' by \code{fy_month}. For financial years, the month is the month of the year,
 #' so for example \code{fy_month = 9} and "2015-16" means Sep-2015,
 #' while \code{fy_month = 6} means Jun-2016.
 #'
 #'
-#' @param x (Advanced) A vector that will be inflated in-place. If \code{NULL},
-#' the default, the return vector is simply the inflation factor for `from`.
+#' @param x (Advanced) A double vector that will be inflated in-place. If
+#' \code{NULL}, the default, the return vector is simply the inflation factor
+#' for `from`. Since `x` is modified in place, any other name bound to the same
+#' object is modified too; an integer `x` is coerced to double, which copies, so
+#' in that case use the return value.
 #'
 #' @param check \code{integer(1)} If \code{0L}, no checks are performed, and
-#' clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
-#' an error is performed for bad input; \code{check = 2L} is more thorough.
+#' clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L},
+#' invalid input errors and extrapolation warns. If \code{check = 2L}, dates
+#' outside the exact index endpoints error instead of being extrapolated.
 #'
 #' @param nThread Number of threads to use.
 #'
@@ -31,14 +34,11 @@
 #' cpi_inflator("2015-16", "2016-17")
 #' cpi_inflator("2015-01-01", "2016-01-01")
 #'
-#' if (Sys.Date() < as.Date("2029-01-01")) {
-#'   cpi_inflator("2030-01-01", "2031-01-01",
-#'                series = cpi_original(2030, 0.1))
-#'   cpi_inflator("2030-01-01", "2031-01-01",
-#'                series = cpi_original(0.1))
-#'   cpi_inflator("2030-01-01", "2032-01-01",
-#'                series = cpi_original(2030, 0.1, 2031, 0.1, 2032, 0))
-#' }
+#' # A custom series, holding CPI growth at 10% a year from 2030
+#' cpi_inflator("2030-01-01", "2031-01-01", series = cpi_original(2030, 0.1))
+#' cpi_inflator("2030-01-01", "2031-01-01", series = cpi_original("10%"))
+#' cpi_inflator("2030-01-01", "2032-01-01",
+#'              series = cpi_original(2030, 0.1, 2031, 0.1, 2032, 0))
 #'
 #'
 #' @return
@@ -64,6 +64,9 @@ cpi_inflator <- function(from = NULL, to = NULL,
   } else {
     Index <- copy(series)
   }
+  if (no_series_data(Index)) {
+    return(NULL) # nocov
+  }
 
   sys_call <- deparse(sys.call())
   ans <- NULL
@@ -77,9 +80,6 @@ cpi_inflator <- function(from = NULL, to = NULL,
   error = function(e) {
     stop(sys_call, ": ", e$message, call. = FALSE)
   },
-  warning = function(e) {
-    warning(sys_call, ": ", e$message, call. = FALSE)
-  },
   message = function(e) {
     # Uncommenting this line results in the message being duplicated
     # message(sys_call, ": ", e$message)
@@ -87,7 +87,7 @@ cpi_inflator <- function(from = NULL, to = NULL,
   ans
 }
 
-cpi2series_id <- function(series, use_monthly) {
+cpi2series_id <- function(series) {
   switch(series,
          original = "A2325846C",
          seasonal = "A3604506F",
@@ -103,6 +103,9 @@ cpi2series_id <- function(series, use_monthly) {
 }
 
 date2freq <- function(date) {
+  if (length(date) < 2L) {
+    stop("Cannot determine the frequency of a series with fewer than two dates.")
+  }
   d_months <- (month(date[2]) - month(date[1])) %% 12L
   if (d_months == 3L) {
     return(4L)
@@ -114,11 +117,9 @@ date2freq <- function(date) {
   if (d_months == 0L) {
     return(1L)
   }
-  # nocov start
-  warning("Unable to determine frequency from dates:\n\t",
-          toString(head(date, 3)))
-  return(4L)
-  # nocov end
+  stop("Unable to determine the frequency from dates:\n\t",
+       toString(head(date, 3)),
+       "\nOnly annual, quarterly and monthly series are supported.")
 }
 
 
@@ -129,17 +130,70 @@ supported_classes <- function(x) {
   match(x, c("fy", "Date", "IDate", "integer", "character"), nomatch = 0L)
 }
 
-ensure_date <- function(x) {
+# The class reported to the native code must describe the value it actually
+# receives, not the value the user supplied: ensure_date() resolves several
+# classes (notably <fy>) to something else.
+converted_class <- function(x, original_class) {
+  # ensure_date() represents an <fy> as its ending year, which is the compact
+  # integer representation expected by CLASS_FY in the native kernels.
+  if (length(original_class) && original_class[1L] == CLASS_FY) {
+    return(CLASS_FY)
+  }
+  if (inherits(x, "IDate")) {
+    return(CLASS_IDate)
+  }
+  if (is.character(x)) {
+    return(CLASS_character)
+  }
+  if (is.integer(x)) {
+    # a bare year
+    return(CLASS_integer)
+  }
+  original_class # nocov
+}
+
+CLASS_FY <- 1L
+CLASS_IDate <- 3L
+CLASS_integer <- 4L
+CLASS_character <- 5L
+
+# Convert `x` to one of the three representations the native code understands:
+# an IDate, a character date, or an integer year.
+#
+# A financial year is represented by its ending year. The native CLASS_FY path
+# resolves that compact integer representation to `fy_month`, avoiding a large
+# intermediate character vector for long inputs. `fy_month` in Jul-Dec falls
+# in the first calendar year of the label, Jan-Jun in the second; fy::fy2yr()
+# gives the second.
+ensure_date <- function(x, fy_month = 3L, var = "x", check = 1L) {
   if (inherits(x, "IDate")) {
     return(x)
   }
   if (inherits(x, "fy")) {
-    return(fy::fy2yr(x))
+    ending_yr <- fy::fy2yr(x)
+    # fy2yr() represents an unsupported label as NA. Detect that before the
+    # original value is lost; supported-range checks on valid ending years are
+    # then performed by C_check_input without allocating full-length logical
+    # temporaries.
+    if (check >= 1L && anyNA(ending_yr)) {
+      i <- which(is.na(ending_yr))[1L]
+      stop("`", var, "[", i, "] = ", as.character(x[i]),
+           "` is not a supported financial year (resolved years must be ",
+           "between 1948 and 2075).")
+    }
+    return(ending_yr)
   }
   if (inherits(x, "Date")) {
     return(as.IDate(x))
   }
   if (is.double(x)) {
+    # A year must be a whole number: silently truncating 2024.9 to 2024 hides
+    # what is almost always a mistake.
+    if (check >= 1L && any(is.finite(x) & x != trunc(x))) {
+      i <- which(is.finite(x) & x != trunc(x))[1L]
+      stop("`", var, "[", i, "] = ", x[i],
+           "` but a year must be a whole number.")
+    }
     x <- as.integer(x)
   }
   x
@@ -170,15 +224,7 @@ cpi_custom <- function(series, ..., FORECAST = FALSE, LEVEL = "mean") {
     }
     return(Index)
   }
-  if (...length() %% 2L) {
-    if (...length() == 1L) {
-      return(.prolong_annual_r(Index, ...))
-    }
-    return(r2index(Index, ...))
-    # NewIndex <-
-  } else {
-    return(dr2index(Index, ...))
-  }
+  return(.custom_series(Index, ...))
 }
 
 #' @rdname cpi_inflator
@@ -223,13 +269,5 @@ cpi_seasonal_fy <- function(...) {
     return(Index)
   }
 
-  if (...length() %% 2L) {
-    if (...length() == 1L) {
-      return(.prolong_annual_r(Index, ...))
-    }
-    return(r2index(Index, ...))
-    # NewIndex <-
-  } else {
-    return(dr2index(Index, ...))
-  }
+  .custom_series(Index, ...)
 }

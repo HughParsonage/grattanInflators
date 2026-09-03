@@ -21,20 +21,43 @@ range close to the previous year is used.}
 \item{index}{A table of at least two columns, named \code{date} and \code{value}.
 \code{date} is the
 column of times to which \code{from}, \code{to} will be
-matched. \code{value} is the values that determine the inflation factor.}
+matched. \code{value} is the values that determine the inflation factor.
 
-\item{x}{(Advanced) A vector that will be inflated in-place. If \code{NULL},
-the default, the return vector is simply the inflation factor for `from`.}
+The dates must be a strictly increasing, regular annual, quarterly, or
+monthly sequence, and the values finite and nonzero: the underlying
+implementation locates an observation by arithmetic on the first date, not
+by a lookup, so an irregular or unsorted table would silently give the wrong
+answer. \code{Inflate} validates this before use.
+For checked inputs, period-based matching is used only between the first and
+last observed dates. A date outside those exact endpoints is treated as
+extrapolation, even if it falls in the same month, quarter, or anchored year
+as an endpoint. With \code{check = 1L}, a date after the final observation
+but within its calculation period carries forward the terminal index value;
+a date in a later period causes the index to be projected. Both cases warn.}
 
-\item{fy_month}{An integer 1-12, the month to be used for
-years and financial years in \code{from} or \code{to}. For
-financial years, the month is the month of the financial year,
+\item{x}{(Advanced) A double vector that will be inflated in-place. If
+\code{NULL}, the default, the return vector is simply the inflation factor
+for `from`.
+
+Because \code{x} is modified in place, any other name bound to the same
+object is modified too. An integer \code{x} is coerced to double, which
+necessarily copies, so in that case the result must be taken from the return
+value rather than from \code{x}.}
+
+\item{fy_month}{An integer 1-12 used to locate financial-year inputs in the
+index. Ordinary integer years are represented by January and are unaffected
+by \code{fy_month}. For financial years, the month is the month of the year,
 so for example \code{fy_month = 9} and "2015-16" means Sep-2015,
 while \code{fy_month = 6} means Jun-2016.}
 
 \item{check}{\code{integer(1)} If \code{0L}, no checks are performed, and
-clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
-an error is performed for bad input; \code{check = 2L} is more thorough.}
+clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L},
+invalid input errors and extrapolation warns. If \code{check = 2L}, dates
+outside the exact index endpoints error instead of being extrapolated.
+
+Note that \code{check} governs how loudly invalid \emph{dates} are reported.
+It never governs whether the index is bounds-checked: an out-of-range date
+always yields \code{NaN} rather than reading beyond the index.}
 
 \item{nThread}{Number of threads to use.}
 }
