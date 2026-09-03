@@ -1,4 +1,4 @@
-## grattanInflators 0.5.8
+## grattanInflators 0.6.0
 
 ### Bug fixes (memory safety)
 
@@ -74,6 +74,12 @@
 
 ### Other changes
 
+* All CPI, wage-price and labour-force series are now bundled with the package,
+  so every inflator works immediately after installation without an internet
+  connection. `download_data()` continues to store newer copies in the user
+  data directory. A downloaded copy takes precedence only when its observation
+  coverage is at least as recent as the bundled snapshot, so a cache left by an
+  older package version cannot mask newer bundled data.
 * `index` is now validated before use: it must have `date` and `value` columns,
   at least two rows, strictly increasing dates forming a regular annual,
   quarterly or monthly sequence, and finite non-zero values. The native code
@@ -85,12 +91,8 @@
   series is dropped so that `download_data()` takes effect within a session.
 * `GET_SERIES_FY()` no longer adds an `fy` column by reference to the cached
   series.
-* Tests no longer skip the whole suite when the mirrored ABS data is
-  unavailable. The parser, native-safety, custom-series and synthetic-index
-  tests now run on every platform (and under the sanitizers); only the files
-  that genuinely need the ABS data skip themselves. The exported inflators
-  still degrade to a message and `NULL` when no data can be obtained, so a
-  machine with no internet access does not fail `R CMD check`.
+* The test suite now runs the exported inflators on every platform, including
+  machines without internet access, using the bundled ABS data.
 * Removed a unit test that had been gated on a date now past, and so had
   stopped running.
 

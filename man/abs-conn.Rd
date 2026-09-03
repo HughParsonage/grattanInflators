@@ -32,15 +32,19 @@ the default, downloads all files required.}
 \describe{
 \item{\code{content2series_id}}{A character vector, the Series ID identified
 by `broad_cat` and `adjustment`}
-\item{\code{download_data}}{Called for its side-effect, downloading the
-data required. Returns an integer vector of the statuses of each download.}
-\item{\code{when_last_updated}}{The date the downloaded data was last retrieved, or
-the string \code{"Never"} if the file does not exist. Note that this is the
-date of \emph{retrieval}, not the ABS release the data came from: the mirror
-tracks the ABS, so two sessions running the same package version at
-different times may see different index histories.}
-\item{\code{grattanInflators_has_no_data}}{\code{TRUE} if no data has ever been
-received (or package directory removed); likely due to no internet connection.}
+\item{\code{download_data}}{Called for its side-effect, downloading updated
+data to the user data directory. A downloaded series takes precedence when
+its latest observation is at least as recent as the snapshot bundled with
+the package. Returns an integer vector of the statuses of each download.}
+\item{\code{when_last_updated}}{The date an update was last downloaded, or
+the string \code{"Never updated"} if no update has been downloaded. The
+bundled snapshot does not count as an update. Note that this is the date of
+\emph{retrieval}, not the ABS release the data came from: the mirror tracks
+the ABS, so two sessions running the same package version at different times
+may see different index histories.}
+\item{\code{grattanInflators_has_no_data}}{\code{TRUE} if neither bundled nor
+downloaded data are available. A normal installation includes bundled data
+for every inflator.}
 }
 }
 \description{
