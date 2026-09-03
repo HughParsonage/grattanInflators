@@ -157,6 +157,101 @@ for (represent in representations) {
                   index = annual_boundary_index, check = 2L), "later")
 }
 
+# With check = 1, passing the exact endpoint while remaining in its terminal
+# calculation period is explicit carry-forward, not a forecast. It warns and
+# returns the terminal period's factor for every supported date representation.
+terminal_period_cases <- list(
+  monthly = list(
+    index = monthly_boundary_index,
+    from = as.IDate("2024-01-15"),
+    to = as.IDate("2024-02-29"),
+    expected = 1.01
+  ),
+  quarterly = list(
+    index = data.table(
+      date = as.IDate(c("2024-01-15", "2024-04-15")),
+      value = c(100, 110)
+    ),
+    from = as.IDate("2024-01-15"),
+    to = as.IDate("2024-06-30"),
+    expected = 1.1
+  ),
+  annual = list(
+    index = data.table(
+      date = as.IDate(c("2023-06-15", "2024-06-15")),
+      value = c(100, 110)
+    ),
+    from = as.IDate("2023-06-15"),
+    to = as.IDate("2025-05-31"),
+    expected = 1.1
+  )
+)
+for (case_name in names(terminal_period_cases)) {
+  case <- terminal_period_cases[[case_name]]
+  expect_equal(grattanInflators:::.forecast_horizon(case$index$date, case$to),
+               0L, info = case_name)
+  for (represent in representations) {
+    observed <- list()
+    result <- withCallingHandlers(
+      ii(represent(case$from), represent(case$to),
+         index = case$index, check = 1L),
+      warning = function(w) {
+        observed[[length(observed) + 1L]] <<- w
+        invokeRestart("muffleWarning")
+      }
+    )
+    expect_equal(result, case$expected, tolerance = 1e-12,
+                 info = case_name)
+    expect_equal(length(observed), 1L, info = case_name)
+    expect_match(conditionMessage(observed[[1L]]), "carried forward",
+                 info = case_name)
+    expect_true(inherits(observed[[1L]], "grattanInflators_carry_forward"),
+                info = case_name)
+    expect_true(inherits(observed[[1L]], "grattanInflators_extrapolation"),
+                info = case_name)
+  }
+}
+
+# This is an ordinary R warning, so the standard warn = 2 policy converts it
+# into an error. A bare signalCondition() would not do so.
+local({
+  old_options <- options(warn = 2)
+  on.exit(options(old_options), add = TRUE)
+  case <- terminal_period_cases$monthly
+  expect_error(
+    ii(case$from, case$to, index = case$index, check = 1L),
+    "carried forward"
+  )
+})
+
+# Requests in a genuinely later period still select and announce projection.
+projection_index <- data.table(
+  date = seq(as.IDate("2023-01-15"), by = "1 month", length.out = 24L),
+  value = 100 * 1.002 ^ (0:23)
+)
+expect_warning(
+  ii(projection_index$date[1L], as.IDate("2025-01-15"),
+     index = projection_index, check = 1L),
+  "projected values"
+)
+
+# Public wrappers let Inflate's warning propagate instead of reissuing it.
+# Consequently each call emits one classed warning, rather than zero or two.
+for (inflator in list(cpi_inflator, wage_inflator, lf_inflator)) {
+  observed <- list()
+  case <- terminal_period_cases$monthly
+  result <- withCallingHandlers(
+    inflator(case$from, case$to, series = case$index, check = 1L),
+    warning = function(w) {
+      observed[[length(observed) + 1L]] <<- w
+      invokeRestart("muffleWarning")
+    }
+  )
+  expect_equal(result, case$expected, tolerance = 1e-12)
+  expect_equal(length(observed), 1L)
+  expect_true(inherits(observed[[1L]], "grattanInflators_carry_forward"))
+}
+
 # Quarterly Date/IDate inputs retain the generic kernel's calendar-quarter
 # interpretation, including dates before the observation month in a quarter.
 quarter_index <- data.table(

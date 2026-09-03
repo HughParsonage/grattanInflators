@@ -211,9 +211,10 @@ download_data <- function(series_id = NULL) {
         return(NA_integer_)
       }
       destfile <- extdata_series_id(sid)
-      # Download into the destination directory so that the final move is a
-      # same-filesystem rename, i.e. atomic: a half-written or invalid file
-      # must never become the cache.
+      # Download into the destination directory so that the preferred final
+      # move is an atomic same-filesystem rename. On platforms that cannot
+      # replace an existing file by rename, the fallback copy is non-atomic;
+      # the retained backup aids recovery, and every cache read is validated.
       tempf <- tempfile(pattern = paste0(sid, "-"),
                         tmpdir = dirname(destfile),
                         fileext = ".tsv.tmp")

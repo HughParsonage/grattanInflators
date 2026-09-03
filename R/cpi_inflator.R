@@ -17,8 +17,9 @@
 #' in that case use the return value.
 #'
 #' @param check \code{integer(1)} If \code{0L}, no checks are performed, and
-#' clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
-#' an error is performed for bad input; \code{check = 2L} is more thorough.
+#' clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L},
+#' invalid input errors and extrapolation warns. If \code{check = 2L}, dates
+#' outside the exact index endpoints error instead of being extrapolated.
 #'
 #' @param nThread Number of threads to use.
 #'
@@ -78,9 +79,6 @@ cpi_inflator <- function(from = NULL, to = NULL,
   },
   error = function(e) {
     stop(sys_call, ": ", e$message, call. = FALSE)
-  },
-  warning = function(e) {
-    warning(sys_call, ": ", e$message, call. = FALSE)
   },
   message = function(e) {
     # Uncommenting this line results in the message being duplicated

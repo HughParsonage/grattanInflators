@@ -28,8 +28,9 @@ lfi_trend(..., FORECAST = FALSE, LEVEL = "mean")
 range close to the previous year is used.}
 
 \item{check}{\code{integer(1)} If \code{0L}, no checks are performed, and
-clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
-an error is performed for bad input; \code{check = 2L} is more thorough.}
+clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L},
+invalid input errors and extrapolation warns. If \code{check = 2L}, dates
+outside the exact index endpoints error instead of being extrapolated.}
 
 \item{series}{A call to `lfi_original()`, `lfi_seasonal()`, or `lfi_trend()`.}
 

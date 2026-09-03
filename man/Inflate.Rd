@@ -31,7 +31,9 @@ answer. \code{Inflate} validates this before use.
 For checked inputs, period-based matching is used only between the first and
 last observed dates. A date outside those exact endpoints is treated as
 extrapolation, even if it falls in the same month, quarter, or anchored year
-as an endpoint.}
+as an endpoint. With \code{check = 1L}, a date after the final observation
+but within its calculation period carries forward the terminal index value;
+a date in a later period causes the index to be projected. Both cases warn.}
 
 \item{x}{(Advanced) A double vector that will be inflated in-place. If
 \code{NULL}, the default, the return vector is simply the inflation factor
@@ -49,8 +51,9 @@ so for example \code{fy_month = 9} and "2015-16" means Sep-2015,
 while \code{fy_month = 6} means Jun-2016.}
 
 \item{check}{\code{integer(1)} If \code{0L}, no checks are performed, and
-clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
-an error is performed for bad input; \code{check = 2L} is more thorough.
+clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L},
+invalid input errors and extrapolation warns. If \code{check = 2L}, dates
+outside the exact index endpoints error instead of being extrapolated.
 
 Note that \code{check} governs how loudly invalid \emph{dates} are reported.
 It never governs whether the index is bounds-checked: an out-of-range date

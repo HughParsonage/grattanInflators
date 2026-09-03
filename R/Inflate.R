@@ -14,7 +14,9 @@
 #' For checked inputs, period-based matching is used only between the first and
 #' last observed dates. A date outside those exact endpoints is treated as
 #' extrapolation, even if it falls in the same month, quarter, or anchored year
-#' as an endpoint.
+#' as an endpoint. With \code{check = 1L}, a date after the final observation
+#' but within its calculation period carries forward the terminal index value;
+#' a date in a later period causes the index to be projected. Both cases warn.
 #'
 #' @param x (Advanced) A double vector that will be inflated in-place. If
 #' \code{NULL}, the default, the return vector is simply the inflation factor
@@ -32,8 +34,9 @@
 #' while \code{fy_month = 6} means Jun-2016.
 #'
 #' @param check \code{integer(1)} If \code{0L}, no checks are performed, and
-#' clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L}
-#' an error is performed for bad input; \code{check = 2L} is more thorough.
+#' clearly invalid inputs result in \code{NA} in the output. If \code{check = 1L},
+#' invalid input errors and extrapolation warns. If \code{check = 2L}, dates
+#' outside the exact index endpoints error instead of being extrapolated.
 #'
 #' Note that \code{check} governs how loudly invalid \emph{dates} are reported.
 #' It never governs whether the index is bounds-checked: an out-of-range date
@@ -103,17 +106,37 @@ Inflate <- function(from, to,
                             xclass = to_class)
   if (check < 2L) {
     if (from_beyond || to_beyond) {
-      if (check == 1L) {
-        signalCondition(simpleWarning(paste0("`from` or `to` had dates beyond the last date in the series (", as.character(maxDate), "), so projected values will be used.")))
-      } else {
-        message("`from` or `to` had dates beyond the last date in the series (", as.character(maxDate), "), so projected values will be used.")
-      }
       until <- max(.requested_until(from, from_class, fy_month),
                    .requested_until(to, to_class, fy_month))
-      index <- .prolong_ets(index, until = until)
-      index_dates <- validate_index(index)
-      index_value <- as.double(.subset2(index, "value"))
-      maxDate <- index_dates[length(index_dates)]
+      carry_forward <- .forecast_horizon(index_dates, until) == 0L
+      diagnostic <-
+        if (carry_forward) {
+          paste0("`from` or `to` had dates beyond the last date in the series (",
+                 as.character(maxDate), ") but within its final index period, ",
+                 "so the terminal index value will be carried forward.")
+        } else {
+          paste0("`from` or `to` had dates beyond the last date in the series (",
+                 as.character(maxDate), "), so projected values will be used.")
+        }
+      if (check == 1L) {
+        warning_class <- if (carry_forward) {
+          "grattanInflators_carry_forward"
+        } else {
+          "grattanInflators_projection"
+        }
+        warning(warningCondition(
+          diagnostic,
+          class = c(warning_class, "grattanInflators_extrapolation")
+        ))
+      } else {
+        message(diagnostic)
+      }
+      if (!carry_forward) {
+        index <- .prolong_ets(index, until = until)
+        index_dates <- validate_index(index)
+        index_value <- as.double(.subset2(index, "value"))
+        maxDate <- index_dates[length(index_dates)]
+      }
     }
   }
 
@@ -365,10 +388,16 @@ validate_x <- function(x, from, to) {
 
 .forecast_horizon <- function(index_dates, until) {
   freq <- date2freq(index_dates)
-  period_months <- 12L %/% freq
-  last_ym <- 12L * year(last(index_dates)) + month(last(index_dates))
-  until_ym <- 12L * year(until) + month(until)
-  max(ceiling((until_ym - last_ym) / period_months), 0L)
+  anchor_month <- month(index_dates[1L])
+  period_id <- function(date) {
+    yr <- year(date)
+    mo <- month(date)
+    switch(as.character(freq),
+           "1" = yr - as.integer(mo < anchor_month),
+           "4" = 4L * yr + (mo - 1L) %/% 3L,
+           "12" = 12L * yr + mo)
+  }
+  max(period_id(until) - period_id(last(index_dates)), 0L)
 }
 
 .prolong_ets <- function(index, until = MAX_DATE, level = "mean") {
@@ -379,7 +408,6 @@ validate_x <- function(x, from, to) {
   index_dates <- as.IDate(.subset2(index, "date"))
   freq <- date2freq(index_dates)
   period_months <- 12L %/% freq
-  until_ym <- 12L * year(until) + month(until)
   h <- .forecast_horizon(index_dates, until)
   if (h == 0L) {
     return(index)
@@ -417,8 +445,7 @@ validate_x <- function(x, from, to) {
                                    .index_anchor_day(index_dates))
   ans <- rbind(index, data.table(date = new_dates, value = new_value)[date <= MAX_DATE])
   ans_dates <- .subset2(ans, "date")
-  covered_through <- 12L * year(last(ans_dates)) + month(last(ans_dates)) + period_months - 1L
-  if (covered_through < until_ym) {
+  if (.forecast_horizon(ans_dates, until) > 0L) {
     stop("Forecast did not reach the requested endpoint.") # nocov
   }
   ans
