@@ -19,9 +19,9 @@
 #' \item{\code{content2series_id}}{A character vector, the Series ID identified
 #' by `broad_cat` and `adjustment`}
 #' \item{\code{download_data}}{Called for its side-effect, downloading updated
-#' data to the user data directory. A downloaded series takes precedence over
-#' the snapshot bundled with the package. Returns an integer vector of the
-#' statuses of each download.}
+#' data to the user data directory. A downloaded series takes precedence when
+#' its latest observation is at least as recent as the snapshot bundled with
+#' the package. Returns an integer vector of the statuses of each download.}
 #' \item{\code{when_last_updated}}{The date an update was last downloaded, or
 #' the string \code{"Never updated"} if no update has been downloaded. The
 #' bundled snapshot does not count as an update. Note that this is the date of
@@ -100,17 +100,40 @@ bundled_series_id <- function(series_id) {
 
 available_series_id <- function(series_id) {
   downloaded <- extdata_series_id(series_id)
-  if (file.exists(downloaded) && isTRUE(file.size(downloaded) > 0L)) {
+  bundled <- bundled_series_id(series_id)
+
+  downloaded_exists <- file.exists(downloaded) &&
+    isTRUE(file.size(downloaded) > 0L)
+  bundled_exists <- nzchar(bundled) && file.exists(bundled) &&
+    isTRUE(file.size(bundled) > 0L)
+
+  if (downloaded_exists && bundled_exists) {
+    downloaded_last <- series_last_observation(downloaded, series_id)
+    bundled_last <- series_last_observation(bundled, series_id)
+    if (!is.na(downloaded_last) &&
+        (is.na(bundled_last) || downloaded_last >= bundled_last)) {
+      return(downloaded)
+    }
+    return(bundled)
+  }
+  if (downloaded_exists) {
     return(downloaded)
   }
-
-  bundled <- bundled_series_id(series_id)
-  if (nzchar(bundled) && file.exists(bundled) &&
-      isTRUE(file.size(bundled) > 0L)) {
+  if (bundled_exists) {
     return(bundled)
   }
 
   ""
+}
+
+# Return an integer day so two validated series can be compared without any
+# assumptions about file timestamps or package installation dates. Old caches
+# can include blank calendar scaffolding, which read_cached_series() trims.
+series_last_observation <- function(path, series_id) {
+  tryCatch(
+    as.integer(max(.subset2(read_cached_series(path, series_id), "date"))),
+    error = function(e) NA_integer_
+  )
 }
 
 # Reads a two-column date/value TSV as downloaded from the ABS-Catalogue

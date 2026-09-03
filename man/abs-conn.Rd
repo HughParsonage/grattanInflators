@@ -33,9 +33,9 @@ the default, downloads all files required.}
 \item{\code{content2series_id}}{A character vector, the Series ID identified
 by `broad_cat` and `adjustment`}
 \item{\code{download_data}}{Called for its side-effect, downloading updated
-data to the user data directory. A downloaded series takes precedence over
-the snapshot bundled with the package. Returns an integer vector of the
-statuses of each download.}
+data to the user data directory. A downloaded series takes precedence when
+its latest observation is at least as recent as the snapshot bundled with
+the package. Returns an integer vector of the statuses of each download.}
 \item{\code{when_last_updated}}{The date an update was last downloaded, or
 the string \code{"Never updated"} if no update has been downloaded. The
 bundled snapshot does not count as an update. Note that this is the date of

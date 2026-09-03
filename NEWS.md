@@ -77,7 +77,9 @@
 * All CPI, wage-price and labour-force series are now bundled with the package,
   so every inflator works immediately after installation without an internet
   connection. `download_data()` continues to store newer copies in the user
-  data directory, where they take precedence over the bundled snapshot.
+  data directory. A downloaded copy takes precedence only when its observation
+  coverage is at least as recent as the bundled snapshot, so a cache left by an
+  older package version cannot mask newer bundled data.
 * `index` is now validated before use: it must have `date` and `value` columns,
   at least two rows, strictly increasing dates forming a regular annual,
   quarterly or monthly sequence, and finite non-zero values. The native code
