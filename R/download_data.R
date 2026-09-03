@@ -18,15 +18,19 @@
 #' \describe{
 #' \item{\code{content2series_id}}{A character vector, the Series ID identified
 #' by `broad_cat` and `adjustment`}
-#' \item{\code{download_data}}{Called for its side-effect, downloading the
-#' data required. Returns an integer vector of the statuses of each download.}
-#' \item{\code{when_last_updated}}{The date the downloaded data was last retrieved, or
-#' the string \code{"Never"} if the file does not exist. Note that this is the
-#' date of \emph{retrieval}, not the ABS release the data came from: the mirror
-#' tracks the ABS, so two sessions running the same package version at
-#' different times may see different index histories.}
-#' \item{\code{grattanInflators_has_no_data}}{\code{TRUE} if no data has ever been
-#' received (or package directory removed); likely due to no internet connection.}
+#' \item{\code{download_data}}{Called for its side-effect, downloading updated
+#' data to the user data directory. A downloaded series takes precedence over
+#' the snapshot bundled with the package. Returns an integer vector of the
+#' statuses of each download.}
+#' \item{\code{when_last_updated}}{The date an update was last downloaded, or
+#' the string \code{"Never updated"} if no update has been downloaded. The
+#' bundled snapshot does not count as an update. Note that this is the date of
+#' \emph{retrieval}, not the ABS release the data came from: the mirror tracks
+#' the ABS, so two sessions running the same package version at different times
+#' may see different index histories.}
+#' \item{\code{grattanInflators_has_no_data}}{\code{TRUE} if neither bundled nor
+#' downloaded data are available. A normal installation includes bundled data
+#' for every inflator.}
 #' }
 #'
 NULL
@@ -82,19 +86,31 @@ name2series_id <- function(name, err_ifnotfound = TRUE) {
 }
 
 extdata_series_id <- function(series_id) {
-  # Was originally the extdata of the package but this is now not allowed
-  # in CRAN packages
+  file.path(R_user_dir(packageName(), which = "data"),
+            paste0(series_id, ".tsv"))
+}
 
-  # tools::R_user_dir
-  out <-
-    file.path(R_user_dir(packageName(), which = "data"),
-              paste0(series_id, ".tsv"))
-  if (!file.exists(out)) {
-    # Cannot provide an empty file
-    provide.file(out)
-    file.remove(out)
+# The installed snapshot is deliberately read-only. Updates are written to the
+# user data directory above, so package libraries can remain immutable and an
+# update never modifies the installed package.
+bundled_series_id <- function(series_id) {
+  system.file("extdata", paste0(series_id, ".tsv"),
+              package = packageName())
+}
+
+available_series_id <- function(series_id) {
+  downloaded <- extdata_series_id(series_id)
+  if (file.exists(downloaded) && isTRUE(file.size(downloaded) > 0L)) {
+    return(downloaded)
   }
-  out
+
+  bundled <- bundled_series_id(series_id)
+  if (nzchar(bundled) && file.exists(bundled) &&
+      isTRUE(file.size(bundled) > 0L)) {
+    return(bundled)
+  }
+
+  ""
 }
 
 # Reads a two-column date/value TSV as downloaded from the ABS-Catalogue
@@ -157,13 +173,14 @@ read_cached_series <- function(path, series_id) {
 }
 
 fread_extdata_series_id <- function(series_id) {
-  path <- extdata_series_id(series_id)
-  if (!file.exists(path) || !file.size(path)) {
+  path <- available_series_id(series_id)
+  if (!nzchar(path)) {
     res <- download_data(series_id) # nocov
     if (sum(res, na.rm = TRUE)) {
       # message("download_data did not succeed.")
       return(data.table()) # nocov
     }
+    path <- extdata_series_id(series_id)
   }
   tryCatch(
     # Older cache files can contain a rectangular calendar scaffold with
@@ -171,7 +188,7 @@ fread_extdata_series_id <- function(series_id) {
     # files, but still reject malformed dates and any missing interior value.
     read_cached_series(path, series_id),
     error = function(e) {
-      stop("The cached file for series ", series_id,
+      stop("The data file for series ", series_id,
            " is not a valid index and was not cached in memory. Run ",
            "download_data(\"", series_id, "\") to refresh it.\n\t",
            conditionMessage(e), call. = FALSE)
@@ -211,6 +228,13 @@ download_data <- function(series_id = NULL) {
         return(NA_integer_)
       }
       destfile <- extdata_series_id(sid)
+      destdir <- dirname(destfile)
+      if (!dir.exists(destdir) &&
+          !dir.create(destdir, recursive = TRUE, showWarnings = FALSE) &&
+          !dir.exists(destdir)) {
+        message("Could not create the user data directory: ", destdir)
+        return(3L)
+      }
       # Download into the destination directory so that the preferred final
       # move is an atomic same-filesystem rename. On platforms that cannot
       # replace an existing file by rename, the fallback copy is non-atomic;
@@ -289,7 +313,9 @@ when_last_updated <- function() {
 #' @rdname abs-conn
 #' @export
 grattanInflators_has_no_data <- function() {
-  !file.exists(date_last_updated.rds()) ||
-    !length(dir(tools::R_user_dir("grattanInflators", which = "data"),
-                pattern = "\\.tsv$"))
+  series_id <- unique(content2series_id())
+  series_id <- series_id[nzchar(series_id)]
+  !any(vapply(series_id,
+              function(sid) nzchar(available_series_id(sid)),
+              logical(1L)))
 }
