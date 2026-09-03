@@ -112,4 +112,3 @@ expect_equal(cpi_inflator("2071-01-01", "2072-01-01",
              1.1, tolerance = 1e-8)
 
 
-

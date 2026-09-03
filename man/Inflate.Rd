@@ -27,7 +27,11 @@ The dates must be a strictly increasing, regular annual, quarterly, or
 monthly sequence, and the values finite and nonzero: the underlying
 implementation locates an observation by arithmetic on the first date, not
 by a lookup, so an irregular or unsorted table would silently give the wrong
-answer. \code{Inflate} validates this before use.}
+answer. \code{Inflate} validates this before use.
+For checked inputs, period-based matching is used only between the first and
+last observed dates. A date outside those exact endpoints is treated as
+extrapolation, even if it falls in the same month, quarter, or anchored year
+as an endpoint.}
 
 \item{x}{(Advanced) A double vector that will be inflated in-place. If
 \code{NULL}, the default, the return vector is simply the inflation factor
@@ -38,9 +42,9 @@ object is modified too. An integer \code{x} is coerced to double, which
 necessarily copies, so in that case the result must be taken from the return
 value rather than from \code{x}.}
 
-\item{fy_month}{An integer 1-12, the month to be used for
-years and financial years in \code{from} or \code{to}. For
-financial years, the month is the month of the financial year,
+\item{fy_month}{An integer 1-12 used to locate financial-year inputs in the
+index. Ordinary integer years are represented by January and are unaffected
+by \code{fy_month}. For financial years, the month is the month of the year,
 so for example \code{fy_month = 9} and "2015-16" means Sep-2015,
 while \code{fy_month = 6} means Jun-2016.}
 

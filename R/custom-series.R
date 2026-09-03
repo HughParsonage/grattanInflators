@@ -75,22 +75,19 @@ dr2index <- function(index, d1, r1, ...) {
   r <- .rate2rate(r)
   per_period <- (1 + r) ^ (1 / freq)
 
-  # Collect the new rows first: appending one row at a time with rbind() is
-  # quadratic, and made it easy to advance the date twice per iteration.
-  new_dates <- list()
-  cur <- last(.subset2(index, "date"))
-  repeat {
-    nd <- .next_date(cur, freq)
-    if (nd > d_1) {
-      break
-    }
-    new_dates[[length(new_dates) + 1L]] <- nd
-    cur <- nd
-  }
+  # Generate every date from the same anchor. Advancing from the preceding
+  # clamped date would turn Jan-31 -> Feb-28 -> Mar-28 and drift the series.
+  anchor <- last(.subset2(index, "date"))
+  period_months <- 12L %/% freq
+  anchor_ym <- 12L * year(anchor) + month(anchor)
+  end_ym <- 12L * year(d_1) + month(d_1)
+  n_new <- max((end_ym - anchor_ym) %/% period_months, 0L)
+  anchor_day <- .index_anchor_day(.subset2(index, "date"))
+  new_dates <- .seq_clamped_months(anchor, n_new, period_months, anchor_day)
+  new_dates <- new_dates[new_dates <= d_1]
   if (!length(new_dates)) {
     return(index)
   }
-  new_dates <- do.call(c, new_dates)
   rbind(index,
         data.table(date = new_dates,
                    value = last(.subset2(index, "value")) *
@@ -103,16 +100,24 @@ dr2index <- function(index, d1, r1, ...) {
   nd + as.integer(m == 2L & leap)
 }
 
+.index_anchor_day <- function(dates) {
+  observed_day <- mday(dates)
+  if (all(observed_day == .days_in_month(year(dates), month(dates)))) {
+    return(31L)
+  }
+  max(observed_day)
+}
+
 # Adds `n` whole months to `d`, clamping the day of the month so that e.g.
 # 31 January plus one month is 28/29 February rather than an invalid date.
-.add_months <- function(d, n) {
+.add_months <- function(d, n, anchor_day = mday(d)) {
   y <- year(d)
   m <- month(d)
-  dm <- mday(d)
   tot <- 12L * y + (m - 1L) + as.integer(n)
   y2 <- tot %/% 12L
   m2 <- tot %% 12L + 1L
-  as.IDate(sprintf("%04d-%02d-%02d", y2, m2, pmin(dm, .days_in_month(y2, m2))))
+  as.IDate(sprintf("%04d-%02d-%02d", y2, m2,
+                   pmin(anchor_day, .days_in_month(y2, m2))))
 }
 
 # The next date in a series of the given frequency. `freq` defaults to the

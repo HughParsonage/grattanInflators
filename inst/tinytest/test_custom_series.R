@@ -198,3 +198,20 @@ for (i in seq_along(month_end_indices)) {
   expect_equal(.subset2(rated, "date")[n0 + 1L], first_forecast_dates[i])
   expect_equal(length(grattanInflators:::validate_index(rated)), nrow(rated))
 }
+
+# Custom date-rate extensions retain that same fixed month-end anchor. March
+# is not included when a January-31 series is extended only through March 30.
+extend <- grattanInflators:::.dr_extend
+jan_end <- month_end_indices[["monthly"]]
+through_mar30 <- extend(jan_end, as.IDate("2023-03-30"), 0)
+expect_equal(tail(.subset2(through_mar30, "date"), 2L),
+             as.IDate(c("2023-01-31", "2023-02-28")))
+through_mar31 <- extend(jan_end, as.IDate("2023-03-31"), 0)
+expect_equal(tail(.subset2(through_mar31, "date"), 3L),
+             as.IDate(c("2023-01-31", "2023-02-28", "2023-03-31")))
+carried <- dr2index(jan_end, as.IDate("2023-03-30"), 0)
+carried_dates <- .subset2(carried, "date")
+expect_equal(carried_dates[year(carried_dates) == 2023L &
+                             month(carried_dates) <= 4L],
+             as.IDate(c("2023-01-31", "2023-02-28",
+                        "2023-03-31", "2023-04-30")))

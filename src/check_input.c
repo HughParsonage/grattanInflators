@@ -71,6 +71,14 @@ unsigned char invalid_mday(const char * x, int yr, int month) {
   return 0;
 }
 
+static unsigned char invalid_basic_mday(const char * x) {
+  if (!gi_isdigit(x[8]) || !gi_isdigit(x[9])) {
+    return 1;
+  }
+  const int mday = 10 * (x[8] - '0') + (x[9] - '0');
+  return mday < 1 || mday > 31;
+}
+
 // The grammar accepted here must be exactly the grammar consumed by
 // string2YearMonth(): a string that passes this check must convert to the
 // same YearMonth that the converter produces, and vice versa.
@@ -98,6 +106,9 @@ static unsigned char err_string(YearMonth * YM, const char * x, int n, int check
     int month = string2month(x);
     if (month == 15) {
       return ERR_CHAR_NO_MONTH;
+    }
+    if (invalid_basic_mday(x)) {
+      return ERR_CHAR_BAD_MDAY;
     }
     if (check >= 2 && invalid_mday(x, yr + MIN_YEAR, month)) {
       return ERR_CHAR_BAD_MDAY;
@@ -133,6 +144,24 @@ unsigned int packYearMonth(YearMonth ym) {
   return (ym.year << 4) | ym.month;
 }
 
+// Seven-character FY/quarter labels identify a month rather than a day. Use
+// day 31 for lower-bound comparisons and day 1 for upper-bound comparisons so
+// that any observation date in that month represents the label.
+static unsigned int pack_string_date(YearMonth ym, const char * x, int n,
+                                     unsigned int undated_mday) {
+  const unsigned int mday = n == 10 ?
+    (unsigned int)(10 * (x[8] - '0') + (x[9] - '0')) : undated_mday;
+  return (packYearMonth(ym) << 5) | mday;
+}
+
+static unsigned int pack_idate_date(int x) {
+  char formatted[11] = {0};
+  format_1_idate(formatted, x);
+  const unsigned int mday =
+    (unsigned int)(10 * (formatted[8] - '0') + (formatted[9] - '0'));
+  return (packYearMonth(idate2YearMonth(x)) << 5) | mday;
+}
+
 
 
 static void check_valid_strings(unsigned int xpackminmax[2],
@@ -141,7 +170,7 @@ static void check_valid_strings(unsigned int xpackminmax[2],
                                 const int fy_month,
                                 const int min_date) {
   unsigned char o = 0;
-  unsigned int pack_min = 2044; // maximum packYearMonth value
+  unsigned int pack_min = UINT_MAX;
   unsigned int pack_max = 0;
 
   if (N == 0) {
@@ -178,12 +207,15 @@ static void check_valid_strings(unsigned int xpackminmax[2],
                                       fy_month);
         o |= ei;
         if (ei == 0 && YM.month <= 12) {
-          unsigned int packedYM = packYearMonth(YM);
-          if (packedYM < pack_min) {
-            pack_min = packedYM;
+          unsigned int packed_min =
+            pack_string_date(YM, CHAR(first), length(first), 31u);
+          unsigned int packed_max =
+            pack_string_date(YM, CHAR(first), length(first), 1u);
+          if (packed_min < pack_min) {
+            pack_min = packed_min;
           }
-          if (packedYM > pack_max) {
-            pack_max = packedYM;
+          if (packed_max > pack_max) {
+            pack_max = packed_max;
           }
         }
       }
@@ -209,7 +241,7 @@ static void check_valid_strings(unsigned int xpackminmax[2],
       }
     }
     unsigned char chunk_o = 0;
-    unsigned int chunk_min = 2044;
+    unsigned int chunk_min = UINT_MAX;
     unsigned int chunk_max = 0;
 #if defined _OPENMP
 #pragma omp parallel for num_threads(nThread) schedule(static) reduction(| : chunk_o) reduction(min : chunk_min) reduction(max : chunk_max)
@@ -224,12 +256,15 @@ static void check_valid_strings(unsigned int xpackminmax[2],
       unsigned char ei = err_string(&YM, strings[j], lengths[j], check, fy_month);
       chunk_o |= ei;
       if (ei == 0 && YM.month <= 12) {
-        unsigned int packedYM = packYearMonth(YM);
-        if (packedYM < chunk_min) {
-          chunk_min = packedYM;
+        unsigned int packed_min =
+          pack_string_date(YM, strings[j], lengths[j], 31u);
+        unsigned int packed_max =
+          pack_string_date(YM, strings[j], lengths[j], 1u);
+        if (packed_min < chunk_min) {
+          chunk_min = packed_min;
         }
-        if (packedYM > chunk_max) {
-          chunk_max = packedYM;
+        if (packed_max > chunk_max) {
+          chunk_max = packed_max;
         }
       }
     }
@@ -244,7 +279,7 @@ static void check_valid_strings(unsigned int xpackminmax[2],
 
   xpackminmax[0] = pack_min;
   xpackminmax[1] = pack_max;
-  const unsigned int pack_min_date = packYearMonth(idate2YearMonth(min_date));
+  const unsigned int pack_min_date = pack_idate_date(min_date);
   if (o != 0 || pack_min < pack_min_date) {
     for (R_xlen_t i = 0; i < N; ++i) {
       if (xp[i] == NA_STRING) {
@@ -256,10 +291,11 @@ static void check_valid_strings(unsigned int xpackminmax[2],
       YM.year = 0;
       YM.month = 15;
       int ei = err_string(&YM, xi, nxi, check, fy_month);
-      if (!ei && packYearMonth(YM) < pack_min_date) {
-        YearMonth YM_min = idate2YearMonth(min_date);
-        error("`%s[%lld] = %s`, which is earlier than the earliest date in the series (%d-%02d-01)",
-              var, (long long)i + 1, xi, YM_min.year + MIN_YEAR, YM_min.month);
+      if (!ei && pack_string_date(YM, xi, nxi, 31u) < pack_min_date) {
+        char min_string[11] = {0};
+        format_1_idate(min_string, min_date);
+        error("`%s[%lld] = %s`, which is earlier than the earliest date in the series (%s)",
+              var, (long long)i + 1, xi, (const char *)min_string);
       }
       switch(ei) {
       case 0:
@@ -305,8 +341,7 @@ void check_strsxp(bool * any_beyond,
                   const int max_date) {
   unsigned int xpackminmax[2];
   check_valid_strings(xpackminmax, xp, N, check, nThread, var, fy_month, min_date);
-  YearMonth YM_max_date = idate2YearMonth(max_date);
-  unsigned int packed_max_date = packYearMonth(YM_max_date);
+  unsigned int packed_max_date = pack_idate_date(max_date);
   if (xpackminmax[1] > packed_max_date) {
     if (check >= 2) {
       // need error on excessive date, not just a signal
@@ -317,10 +352,13 @@ void check_strsxp(bool * any_beyond,
         const char * xpi = CHAR(xp[i]);
         YearMonth YM_i;
         err_string(&YM_i, xpi, length(xp[i]), check, fy_month);
-        unsigned int packed_i = packYearMonth(YM_i);
+        unsigned int packed_i =
+          pack_string_date(YM_i, xpi, length(xp[i]), 1u);
         if (packed_i > packed_max_date) {
-          error("`%s[%lld] = %s` which is later than the latest allowable date (%d-%02d-01)",
-                var, (long long)i + 1, xpi, YM_max_date.year + MIN_YEAR, YM_max_date.month);
+          char max_string[11] = {0};
+          format_1_idate(max_string, max_date);
+          error("`%s[%lld] = %s` which is later than the latest allowable date (%s)",
+                var, (long long)i + 1, xpi, (const char *)max_string);
         }
       }
     }

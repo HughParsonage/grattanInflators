@@ -100,7 +100,9 @@ extdata_series_id <- function(series_id) {
 # Reads a two-column date/value TSV as downloaded from the ABS-Catalogue
 # mirror. Errors if the file is not a usable index.
 read_series_tsv <- function(path, strict = TRUE) {
-  ans <- fread(path, sep = "\t")
+  # Preserve the source tokens until malformed values have been distinguished
+  # from the blank/NA boundary scaffolding present in some ABS series.
+  ans <- fread(path, sep = "\t", colClasses = "character", na.strings = NULL)
   if (!hasName(ans, "date") || !hasName(ans, "value")) {
     stop("`", path, "` had columns ", toString(names(ans)),
          " but a series file must have columns `date` and `value`.")
@@ -120,7 +122,16 @@ read_series_tsv <- function(path, strict = TRUE) {
   } else {
     stop("Downloaded series contains an invalid `date` column.")
   }
-  value <- suppressWarnings(as.double(.subset2(ans, "value")))
+  raw_value <- .subset2(ans, "value")
+  trimmed_value <- trimws(raw_value)
+  explicit_missing <- is.na(raw_value) |
+    trimmed_value == "" |
+    trimmed_value == "NA"
+  value <- suppressWarnings(as.double(raw_value))
+  malformed <- is.na(value) & !explicit_missing
+  if (any(malformed)) {
+    stop("Downloaded series contains nonnumeric values.")
+  }
   if (anyNA(date)) {
     stop("Downloaded series contains missing or unparseable observations.")
   }
@@ -139,8 +150,15 @@ read_series_tsv <- function(path, strict = TRUE) {
   data.table(date = date, value = value)
 }
 
+read_cached_series <- function(path, series_id) {
+  out <- read_series_tsv(path, strict = FALSE)
+  validate_index(out, var = series_id)
+  out
+}
+
 fread_extdata_series_id <- function(series_id) {
-  if (!file.exists(extdata_series_id(series_id)) || !file.size(extdata_series_id(series_id))) {
+  path <- extdata_series_id(series_id)
+  if (!file.exists(path) || !file.size(path)) {
     res <- download_data(series_id) # nocov
     if (sum(res, na.rm = TRUE)) {
       # message("download_data did not succeed.")
@@ -151,12 +169,12 @@ fread_extdata_series_id <- function(series_id) {
     # Older cache files can contain a rectangular calendar scaffold with
     # unavailable leading/trailing values. Preserve compatibility with those
     # files, but still reject malformed dates and any missing interior value.
-    read_series_tsv(extdata_series_id(series_id), strict = FALSE),
+    read_cached_series(path, series_id),
     error = function(e) {
-      message("The cached file for series ", series_id,
-              " is not a valid index, so it will not be used.\n\t",
-              conditionMessage(e))
-      data.table()
+      stop("The cached file for series ", series_id,
+           " is not a valid index and was not cached in memory. Run ",
+           "download_data(\"", series_id, "\") to refresh it.\n\t",
+           conditionMessage(e), call. = FALSE)
     }
   )
 }

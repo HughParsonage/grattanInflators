@@ -82,6 +82,81 @@ expect_equal(ii(as.character(from_idate), as.character(to_idate), index = june_i
 expect_equal(ii(2015L, 2016L, index = june_index),
              ii("2015-01-01", "2016-01-01", index = june_index))
 
+# Period bucketing applies only between established observations. Dates before
+# the first observation or after the last are extrapolation, even when they
+# would fall in the same monthly, quarterly or annual calculation bucket.
+representations <- list(
+  IDate = identity,
+  Date = as.Date,
+  character = as.character
+)
+
+monthly_boundary_index <- data.table(
+  date = as.IDate(c("2024-01-15", "2024-02-15")),
+  value = c(100, 101)
+)
+monthly_from <- as.IDate("2024-01-15")
+monthly_to <- as.IDate(c("2024-01-15", "2024-01-31", "2024-02-15"))
+for (represent in representations) {
+  for (check in 0:2) {
+    expect_equal(ii(represent(monthly_from), represent(monthly_to),
+                    index = monthly_boundary_index, check = check),
+                 c(1, 1, 1.01), tolerance = 1e-12)
+  }
+  expect_error(ii(represent(as.IDate("2024-01-01")),
+                  represent(as.IDate("2024-01-15")),
+                  index = monthly_boundary_index, check = 2L), "earlier")
+  expect_error(ii(represent(as.IDate("2024-01-15")),
+                  represent(as.IDate("2024-02-29")),
+                  index = monthly_boundary_index, check = 2L), "later")
+}
+
+for (anchor_month in 1:3) {
+  quarter_boundary_index <- data.table(
+    date = as.IDate(sprintf("2024-%02d-01", c(anchor_month,
+                                               anchor_month + 3L))),
+    value = c(100, 110)
+  )
+  lower_probe <- as.IDate(c("2023-12-31", "2024-01-31", "2024-02-29"))[
+    anchor_month]
+  upper_probe <- as.IDate("2024-06-30")
+  for (represent in representations) {
+    for (check in 0:2) {
+      expect_equal(ii(represent(quarter_boundary_index$date[1L]),
+                      represent(quarter_boundary_index$date[2L]),
+                      index = quarter_boundary_index, check = check),
+                   1.1, tolerance = 1e-12,
+                   info = paste("quarter anchor month", anchor_month))
+    }
+    expect_error(ii(represent(lower_probe),
+                    represent(quarter_boundary_index$date[1L]),
+                    index = quarter_boundary_index, check = 2L), "earlier")
+    expect_error(ii(represent(quarter_boundary_index$date[1L]),
+                    represent(upper_probe),
+                    index = quarter_boundary_index, check = 2L), "later")
+  }
+}
+
+annual_boundary_index <- data.table(
+  date = as.IDate(c("2023-06-01", "2024-06-01")),
+  value = c(100, 110)
+)
+annual_from <- as.IDate("2023-06-01")
+annual_to <- as.IDate(c("2023-06-01", "2023-12-31", "2024-06-01"))
+for (represent in representations) {
+  for (check in 0:2) {
+    expect_equal(ii(represent(annual_from), represent(annual_to),
+                    index = annual_boundary_index, check = check),
+                 c(1, 1, 1.1), tolerance = 1e-12)
+  }
+  expect_error(ii(represent(as.IDate("2023-05-31")),
+                  represent(as.IDate("2023-06-01")),
+                  index = annual_boundary_index, check = 2L), "earlier")
+  expect_error(ii(represent(as.IDate("2023-06-01")),
+                  represent(as.IDate("2025-05-31")),
+                  index = annual_boundary_index, check = 2L), "later")
+}
+
 # Quarterly Date/IDate inputs retain the generic kernel's calendar-quarter
 # interpretation, including dates before the observation month in a quarter.
 quarter_index <- data.table(
@@ -148,6 +223,10 @@ expect_error(read_tsv(fixture(c(
 expect_error(read_tsv(fixture(c(
   "date\tvalue", "2021-02-29\t100", "2022-02-29\t110"
 ))), "missing or unparseable")
+expect_error(read_tsv(fixture(c(
+  "date\tvalue", "2019-12-01\tgarbage", "2020-03-01\t100",
+  "2020-06-01\t101"
+)), strict = FALSE), "nonnumeric")
 
 # The same boundary-trimming mode used for newly downloaded ABS files yields
 # a regular index while retaining every available observation.
@@ -163,6 +242,18 @@ trimmed_download <- read_tsv(download_scaffold, strict = FALSE)
 expect_equal(trimmed_download$date,
              as.IDate(c("2020-03-01", "2020-06-01", "2020-09-01")))
 expect_equal(length(grattanInflators:::validate_index(trimmed_download)), 3L)
+
+# Existing files receive the same structural validation as newly staged data
+# before GET_SERIES can memoise them.
+read_cache <- grattanInflators:::read_cached_series
+expect_equal(read_cache(download_scaffold, "synthetic"), trimmed_download)
+expect_error(read_cache(fixture(c(
+  "date\tvalue", "2020-01-01\t100", "2020-02-01\t101",
+  "2020-04-01\t102"
+)), "synthetic"), "regular sequence")
+expect_error(read_cache(fixture(c(
+  "date\tvalue", "2020-01-01\t100", "2020-02-01\tInf"
+)), "synthetic"), "non-finite")
 
 # The horizon is endpoint- and frequency-dependent; an old monthly custom
 # index can require more than the former fixed 700 observations.

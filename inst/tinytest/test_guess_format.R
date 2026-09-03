@@ -8,6 +8,11 @@ expect_equal(guess_format("01Apr2024"), "%d%b%Y")
 expect_equal(guess_format("01/01/2024"), "%d/%m/%Y")
 expect_equal(guess_format("2024/01/02"), "%Y/%m/%d")
 expect_equal(guess_format("2024.01.02"), "%Y.%m.%d")
+expect_null(guess_format("2024_01_02"))
+expect_null(guess_format("2024/01-02"))
+expect_null(guess_format("31/12-2024"))
+expect_null(guess_format("2024/1/02"))
+expect_equal(guess_format(c("2024_01_02", "2024.01.02")), "%Y.%m.%d")
 
 # Days of 30 and 31 are unambiguous but used to fall through to NULL.
 expect_equal(guess_format("30-01-2024"), "%d-%m-%Y")

@@ -3,10 +3,9 @@
 #' @param from,to Times for which the inflator is desired. If \code{NULL}, a date
 #' range close to the previous year is used.
 #' @param series Which CPI series to use.
-#' @param fy_month An integer 1-12, the month to be used for
-#' years and financial years in \code{from} or \code{to}. Since the CPI is a
-#' quarterly series, specifying a year is ambiguous. For
-#' financial years, the month is the month of the financial year,
+#' @param fy_month An integer 1-12 used to locate financial-year inputs in the
+#' index. Ordinary integer years are represented by January and are unaffected
+#' by \code{fy_month}. For financial years, the month is the month of the year,
 #' so for example \code{fy_month = 9} and "2015-16" means Sep-2015,
 #' while \code{fy_month = 6} means Jun-2016.
 #'

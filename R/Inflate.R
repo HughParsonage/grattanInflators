@@ -11,6 +11,10 @@
 #' implementation locates an observation by arithmetic on the first date, not
 #' by a lookup, so an irregular or unsorted table would silently give the wrong
 #' answer. \code{Inflate} validates this before use.
+#' For checked inputs, period-based matching is used only between the first and
+#' last observed dates. A date outside those exact endpoints is treated as
+#' extrapolation, even if it falls in the same month, quarter, or anchored year
+#' as an endpoint.
 #'
 #' @param x (Advanced) A double vector that will be inflated in-place. If
 #' \code{NULL}, the default, the return vector is simply the inflation factor
@@ -21,9 +25,9 @@
 #' necessarily copies, so in that case the result must be taken from the return
 #' value rather than from \code{x}.
 #'
-#' @param fy_month An integer 1-12, the month to be used for
-#' years and financial years in \code{from} or \code{to}. For
-#' financial years, the month is the month of the financial year,
+#' @param fy_month An integer 1-12 used to locate financial-year inputs in the
+#' index. Ordinary integer years are represented by January and are unaffected
+#' by \code{fy_month}. For financial years, the month is the month of the year,
 #' so for example \code{fy_month = 9} and "2015-16" means Sep-2015,
 #' while \code{fy_month = 6} means Jun-2016.
 #'
@@ -80,6 +84,7 @@ Inflate <- function(from, to,
   # This is validated unconditionally: it costs O(nrow(index)) on a table of a
   # few hundred rows, and every result depends on it.
   index_dates <- validate_index(index)
+  index_freq <- date2freq(index_dates)
   # Native calculation vectors are doubles. Accept ordinary integer-valued
   # custom indices without modifying a caller-owned data.table by reference.
   index_value <- as.double(.subset2(index, "value"))
@@ -118,7 +123,7 @@ Inflate <- function(from, to,
     # is a single factor followed by an in-place vector multiplication.
     r <- .Call("C_Inflate",
                from, to, index_value, minDate,
-               date2freq(index_dates), fy_month, NULL,
+               index_freq, fy_month, NULL,
                from_class, to_class, 1L,
                PACKAGE = packageName())
     .Call("C_multiply", x, r, nThread, PACKAGE = packageName())
@@ -138,7 +143,7 @@ Inflate <- function(from, to,
     return(.Call("C_Inflate2",
                  x,
                  from, to, index_value,
-                 minDate, date2freq(index_dates), nThread,
+                 minDate, index_freq, nThread,
                  PACKAGE = packageName()))
   }
 
@@ -147,7 +152,7 @@ Inflate <- function(from, to,
         to,
         index_value,
         minDate,
-        date2freq(index_dates),
+        index_freq,
         fy_month,
         x,
         from_class,
@@ -327,11 +332,11 @@ validate_x <- function(x, from, to) {
 
 # Extends `index` to at least `until` by compounding the last observed
 # year-on-year rate. Used when fable is unavailable.
-.seq_clamped_months <- function(start, n, step) {
+.seq_clamped_months <- function(start, n, step, anchor_day = mday(start)) {
   if (n <= 0L) {
     return(as.IDate(character()))
   }
-  .add_months(start, step * seq_len(n))
+  .add_months(start, step * seq_len(n), anchor_day)
 }
 
 .prolong_Index <- function(index, until) {
@@ -352,7 +357,8 @@ validate_x <- function(x, from, to) {
   yrs <- max(year(until) - year(last(index_dates)) + 1L, 1L)
   n_new <- freq * yrs
 
-  new_dates <- .seq_clamped_months(last(index_dates), n_new, 12L %/% freq)
+  new_dates <- .seq_clamped_months(last(index_dates), n_new, 12L %/% freq,
+                                   .index_anchor_day(index_dates))
   new_value <- last(index_values) * r ^ (seq_len(n_new) / freq)
   rbind(index, data.table(date = new_dates, value = new_value))[date <= MAX_DATE]
 }
@@ -406,7 +412,9 @@ validate_x <- function(x, from, to) {
     }
     new_value <- fab[[".mean"]]
   }
-  new_dates <- .seq_clamped_months(last(index_dates), length(new_value), period_months)
+  new_dates <- .seq_clamped_months(last(index_dates), length(new_value),
+                                   period_months,
+                                   .index_anchor_day(index_dates))
   ans <- rbind(index, data.table(date = new_dates, value = new_value)[date <= MAX_DATE])
   ans_dates <- .subset2(ans, "date")
   covered_through <- 12L * year(last(ans_dates)) + month(last(ans_dates)) + period_months - 1L
@@ -421,7 +429,8 @@ validate_x <- function(x, from, to) {
   index_dates <- .subset2(index, "date")
   freq <- date2freq(index_dates)
   n_new <- max(.forecast_horizon(index_dates, MAX_DATE), 0L)
-  new_dates <- .seq_clamped_months(last(index_dates), n_new, 12L %/% freq)
+  new_dates <- .seq_clamped_months(last(index_dates), n_new, 12L %/% freq,
+                                   .index_anchor_day(index_dates))
 
   pow <- seq_along(new_dates) / freq
 

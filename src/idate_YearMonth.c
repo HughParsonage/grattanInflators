@@ -499,14 +499,15 @@ SEXP C_guess_date_format(SEXP x) {
       continue;
     }
     const char * xi = CHAR(xp[i]);
-    if (starts_with_yyyy(xi, n)) {
+    if (n == 10 && starts_with_yyyy(xi, n) &&
+        gi_issep(xi[4]) && xi[4] == xi[7]) {
       switch(xi[4]) {
+      case '-':
+        return ScalarString(mkCharCE("%Y-%m-%d", CE_UTF8));
       case '/':
         return ScalarString(mkCharCE("%Y/%m/%d", CE_UTF8));
       case '.':
         return ScalarString(mkCharCE("%Y.%m.%d", CE_UTF8));
-      default:
-        return ScalarString(mkCharCE("%Y-%m-%d", CE_UTF8));
       }
     }
     if (gi_isalpha(xi[2])) {
@@ -514,7 +515,8 @@ SEXP C_guess_date_format(SEXP x) {
     }
     // Day-first: the leading component may be up to 31, so '3' must be
     // admitted as a first character.
-    if (xi[0] >= '0' && xi[0] <= '3' && gi_isdigit(xi[1]) && gi_issep(xi[2])) {
+    if (xi[0] >= '0' && xi[0] <= '3' && gi_isdigit(xi[1]) &&
+        gi_issep(xi[2]) && xi[2] == xi[n - 5]) {
       // report the separator actually used, since the encoder distinguishes them
       switch(xi[2]) {
       case '/':
