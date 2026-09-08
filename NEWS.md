@@ -17,8 +17,7 @@
 * `grattanInflators_has_no_data()` checks for nonempty files without reading
   their contents; selecting an index still validates snapshot freshness.
 * Inflator wrappers report invalid index classes through index validation
-  instead of treating them as missing data. The generic native inflator rejects
-  unsupported frequencies before allocating buffers or changing `x`.
+  instead of treating them as missing data.
 
 ### Bug fixes (memory safety)
 

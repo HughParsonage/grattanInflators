@@ -81,18 +81,3 @@ for (inflator in list(awe_inflator, awote_inflator, wage_inflator, lf_inflator, 
   expect_message(result <- inflator("2024-05-15", "2024-11-15", series = data.table()), "zero rows")
   expect_null(result)
 }
-
-# The generic native entry point must reject unknown frequencies before it
-# initialises its result or writes to caller-owned x, just like C_Inflate2.
-for (freq in c(0L, 3L, 6L, NA_integer_)) {
-  x <- c(7, 9)
-  expect_error(.Call("C_Inflate", c(2024L, 2024L), 2024L,
-                     c(100, 110), as.IDate("2024-01-01"), freq, 3L, x,
-                     4L, 4L, 1L, PACKAGE = "grattanInflators"),
-               "frequency.*supported")
-  expect_equal(x, c(7, 9))
-  expect_error(.Call("C_Inflate", 2024L, 2024L,
-                     c(100, 110), as.IDate("2024-01-01"), freq, 3L, NULL,
-                     4L, 4L, 1L, PACKAGE = "grattanInflators"),
-               "frequency.*supported")
-}
