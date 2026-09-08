@@ -6,6 +6,8 @@
   `awote_inflator()` (full-time adults' average weekly ordinary time earnings),
   with original, seasonal and trend data functions and bundled ABS May 2026 data.
   `download_data()` includes all six new series.
+* Earnings snapshot preparation selects series by ID using `readabs` or
+  ABS-Catalogue, without release-specific URLs or workbook-position assumptions.
 * `Inflate()` and custom/forecast series now support regular half-yearly indices.
   Periods are anchored to the observation month: May to October and November to
   April for the earnings series, with the usual exact endpoint checks.
