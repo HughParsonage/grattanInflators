@@ -6,7 +6,7 @@
 #' column of times to which \code{from}, \code{to} will be
 #' matched. \code{value} is the values that determine the inflation factor.
 #'
-#' The dates must be a strictly increasing, regular annual, quarterly, or
+#' The dates must be a strictly increasing, regular annual, half-yearly, quarterly, or
 #' monthly sequence, and the values finite and nonzero: the underlying
 #' implementation locates an observation by arithmetic on the first date, not
 #' by a lookup, so an irregular or unsorted table would silently give the wrong
@@ -17,6 +17,9 @@
 #' as an endpoint. With \code{check = 1L}, a date after the final observation
 #' but within its calculation period carries forward the terminal index value;
 #' a date in a later period causes the index to be projected. Both cases warn.
+#' Half-yearly periods are anchored to the first observation's month: a May
+#' observation represents May to October, and November represents November to
+#' April. Matching uses the month, subject to the exact endpoint checks above.
 #'
 #' @param x (Advanced) A double vector that will be inflated in-place. If
 #' \code{NULL}, the default, the return vector is simply the inflation factor
@@ -309,9 +312,9 @@ validate_index <- function(index, var = "index") {
                as.character(dates[1L]), ", ", as.character(dates[2L]),
                "), so the frequency of the series cannot be determined."))
   }
-  if (!step %in% c(1L, 3L, 12L)) {
-    bad(paste0("$date steps by ", step, " month(s); only annual, quarterly ",
-               "and monthly series are supported."))
+  if (!step %in% c(1L, 3L, 6L, 12L)) {
+    bad(paste0("$date steps by ", step, " month(s); only annual, quarterly, ",
+               "half-yearly and monthly series are supported."))
   }
   if (any(d_ym != step)) {
     i <- which(d_ym != step)[1L]
@@ -394,6 +397,7 @@ validate_x <- function(x, from, to) {
     mo <- month(date)
     switch(as.character(freq),
            "1" = yr - as.integer(mo < anchor_month),
+           "2" = (12L * yr + mo - anchor_month) %/% 6L,
            "4" = 4L * yr + (mo - 1L) %/% 3L,
            "12" = 12L * yr + mo)
   }

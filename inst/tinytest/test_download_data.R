@@ -8,7 +8,7 @@ has_covr <- function() {
 # and is usable even when the user data directory is empty.
 series_id <- unique(content2series_id())
 series_id <- series_id[nzchar(series_id)]
-expect_equal(length(series_id), 12L)
+expect_equal(length(series_id), 18L)
 
 bundled <- vapply(series_id,
                   grattanInflators:::bundled_series_id,

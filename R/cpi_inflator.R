@@ -107,6 +107,9 @@ date2freq <- function(date) {
     stop("Cannot determine the frequency of a series with fewer than two dates.")
   }
   d_months <- (month(date[2]) - month(date[1])) %% 12L
+  if (d_months == 6L) {
+    return(2L)
+  }
   if (d_months == 3L) {
     return(4L)
   }
@@ -119,7 +122,7 @@ date2freq <- function(date) {
   }
   stop("Unable to determine the frequency from dates:\n\t",
        toString(head(date, 3)),
-       "\nOnly annual, quarterly and monthly series are supported.")
+       "\nOnly annual, quarterly, half-yearly and monthly series are supported.")
 }
 
 

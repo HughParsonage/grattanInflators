@@ -164,22 +164,29 @@ void InflateMonthly(double * restrict ansp, R_xlen_t N, int nThread,
   }
 }
 
-void InflateYearly(double * restrict ansp, R_xlen_t N, int nThread,
+// Return a negative position before the anchor, including offsets of less
+// than one period (C integer division would otherwise truncate these to zero).
+static inline int anchored_position(YearMonth date, int first_month,
+                                    int months_per_period) {
+  const int offset = ymi(date) - first_month;
+  return offset < 0 ? -1 : offset / months_per_period;
+}
+
+static void InflateAnchored(double * restrict ansp, R_xlen_t N, int nThread,
                    YearMonth * FromDate,
                    YearMonth * ToDate,
                    R_xlen_t N_from,
                    R_xlen_t N_to,
-                   const double * index, R_xlen_t index_n, YearMonth index_min) {
-  const int index_min_year = index_min.year;
-  const int index_min_month = index_min.month;
+                   const double * index, R_xlen_t index_n, YearMonth index_min, int months_per_period) {
+  const int index_min_i = ymi(index_min);
   if (N_from == N && N_to == N) {
     FORLOOP({
       if (is_YMNA(FromDate[i]) || is_YMNA(ToDate[i])) {
         ansp[i] = NaN;
         continue;
       }
-      int from_i = FromDate[i].year - index_min_year - (FromDate[i].month < index_min_month);
-      int to_i = ToDate[i].year - index_min_year - (ToDate[i].month < index_min_month);
+      int from_i = anchored_position(FromDate[i], index_min_i, months_per_period);
+      int to_i = anchored_position(ToDate[i], index_min_i, months_per_period);
       if (IDX_OOB(from_i, index_n) || IDX_OOB(to_i, index_n)) {
         ansp[i] = NaN;
         continue;
@@ -189,7 +196,7 @@ void InflateYearly(double * restrict ansp, R_xlen_t N, int nThread,
       ansp[i] *= to_x / from_x;
     })
   } else if (N_from == N && N_to == 1) {
-    int to_i = ToDate[0].year - index_min_year - (ToDate[0].month < index_min_month);
+    int to_i = anchored_position(ToDate[0], index_min_i, months_per_period);
     if (is_YMNA(ToDate[0]) || IDX_OOB(to_i, index_n)) {
       FORLOOP({
         ansp[i] = NaN;
@@ -202,7 +209,7 @@ void InflateYearly(double * restrict ansp, R_xlen_t N, int nThread,
         ansp[i] = NaN;
         continue;
       }
-      int from_i = FromDate[i].year - index_min_year - (FromDate[i].month < index_min_month);
+      int from_i = anchored_position(FromDate[i], index_min_i, months_per_period);
       if (IDX_OOB(from_i, index_n)) {
         ansp[i] = NaN;
         continue;
@@ -211,7 +218,7 @@ void InflateYearly(double * restrict ansp, R_xlen_t N, int nThread,
       ansp[i] *= to_x / from_x;
     })
   } else if (N_from == 1 && N_to == N) {
-    int from_i = FromDate[0].year - index_min_year - (FromDate[0].month < index_min_month);
+    int from_i = anchored_position(FromDate[0], index_min_i, months_per_period);
     if (is_YMNA(FromDate[0]) || IDX_OOB(from_i, index_n)) {
       FORLOOP({
         ansp[i] = NaN;
@@ -224,7 +231,7 @@ void InflateYearly(double * restrict ansp, R_xlen_t N, int nThread,
         ansp[i] = NaN;
         continue;
       }
-      int to_i = ToDate[i].year - index_min_year - (ToDate[i].month < index_min_month);
+      int to_i = anchored_position(ToDate[i], index_min_i, months_per_period);
       if (IDX_OOB(to_i, index_n)) {
         ansp[i] = NaN;
         continue;
@@ -312,7 +319,8 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
 
   switch(freq) {
   case 1:
-    InflateYearly(ansp, N, nThread, FromDate, ToDate, N_from, N_to, index, index_n, index_min_ym);
+  case 2:
+    InflateAnchored(ansp, N, nThread, FromDate, ToDate, N_from, N_to, index, index_n, index_min_ym, 12 / freq);
     break;
   case 4:
     InflateQuarterly(ansp, N, nThread, FromDate, ToDate, N_from, N_to, index, index_n, index_min_ym);

@@ -3,7 +3,8 @@
 #' @description Used when the true series is not appropriate, as when a forecast
 #' is desired and the series is required beyond the original series.
 #' @param index An index (i.e. a data.table with columns \code{date} and \code{value},
-#' where \code{date} is an arithmetic sequence of monthly, quarterly, or annual dates),
+#' where \code{date} is a regular sequence of monthly, quarterly, half-yearly,
+#' or annual dates),
 #' and \code{value} is the indexed value for that date.
 #' @param d1 A single date or value representing a date.
 #' @param r1 The desired rate of increase for the index from the last date in \code{index}
@@ -11,7 +12,7 @@
 #' to a monthly \code{index} would keep \code{value} constant until \code{2025-12-01}.
 #'
 #' Rates are annual and may be given as a number (\code{0.05}) or as a
-#' percentage string (\code{"5%"}, \code{"-2.5%"}).
+#' percentage string (\code{"5\%"}, \code{"-2.5\%"}).
 #' @param ... A set of date-rate pairs.
 #'
 #' @return

@@ -23,7 +23,7 @@ range close to the previous year is used.}
 column of times to which \code{from}, \code{to} will be
 matched. \code{value} is the values that determine the inflation factor.
 
-The dates must be a strictly increasing, regular annual, quarterly, or
+The dates must be a strictly increasing, regular annual, half-yearly, quarterly, or
 monthly sequence, and the values finite and nonzero: the underlying
 implementation locates an observation by arithmetic on the first date, not
 by a lookup, so an irregular or unsorted table would silently give the wrong
@@ -33,7 +33,10 @@ last observed dates. A date outside those exact endpoints is treated as
 extrapolation, even if it falls in the same month, quarter, or anchored year
 as an endpoint. With \code{check = 1L}, a date after the final observation
 but within its calculation period carries forward the terminal index value;
-a date in a later period causes the index to be projected. Both cases warn.}
+a date in a later period causes the index to be projected. Both cases warn.
+Half-yearly periods are anchored to the first observation's month: a May
+observation represents May to October, and November represents November to
+April. Matching uses the month, subject to the exact endpoint checks above.}
 
 \item{x}{(Advanced) A double vector that will be inflated in-place. If
 \code{NULL}, the default, the return vector is simply the inflation factor

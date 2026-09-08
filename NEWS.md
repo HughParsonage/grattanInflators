@@ -1,5 +1,15 @@
 ## grattanInflators 0.6.0
 
+### New inflators
+
+* Added `awe_inflator()` (all employees' average weekly total earnings) and
+  `awote_inflator()` (full-time adults' average weekly ordinary time earnings),
+  with original, seasonal and trend data functions and bundled ABS May 2026 data.
+  `download_data()` includes all six new series.
+* `Inflate()` and custom/forecast series now support regular half-yearly indices.
+  Periods are anchored to the observation month: May to October and November to
+  April for the earnings series, with the usual exact endpoint checks.
+
 ### Bug fixes (memory safety)
 
 * `Inflate(x = )` no longer writes past the end of `x` when `x` is shorter than

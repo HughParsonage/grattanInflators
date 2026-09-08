@@ -48,7 +48,7 @@ series_id_int <- function(series_id) {
 
 #' @rdname abs-conn
 #' @export
-content2series_id <- function(broad_cat = c("cpi", "lfi", "wpi"),
+content2series_id <- function(broad_cat = c("cpi", "lfi", "wpi", "awe", "awote"),
                               adjustment = c("original", "seasonal", "trend", "trimmed-mean",
                                              "monthly-original", "monthly-seasonal", "monthly-excl-volatile")) {
   cj <- CJ(broad_cat = broad_cat,
@@ -75,7 +75,13 @@ name2series_id <- function(name, err_ifnotfound = TRUE) {
            "aus-lfi-trend" = "A84423127L",
            "aus-wpi-original" = "A2603609J",
            "aus-wpi-seasonal" = "A2713849C",
-           "aus-wpi-trend" = "A2713851R")
+           "aus-wpi-trend" = "A2713851R",
+           "aus-awe-original" = "A85002157R",
+           "aus-awe-seasonal" = "A84998735A",
+           "aus-awe-trend" = "A84990050R",
+           "aus-awote-original" = "A85002148L",
+           "aus-awote-seasonal" = "A84998729F",
+           "aus-awote-trend" = "A84990044V")
   if (is.null(ans)) {
     if (isTRUE(err_ifnotfound)) {
       stop("`name = ", name, "`, not found.") # nocov
