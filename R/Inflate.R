@@ -227,14 +227,13 @@ validate_fy_month <- function(fy_month) {
   MAX_DATE # nocov
 }
 
-# An index that is empty because the mirrored ABS data could not be downloaded
-# is an environment problem, not a user error. The exported inflators degrade
-# to a message and NULL, exactly as before, so that a machine with no internet
-# access (a CRAN check machine, say) does not fail. `Inflate()` itself, which
-# takes an explicit index, still errors: there an empty table is a mistake.
+# An empty index means that neither the bundled series nor a downloaded update
+# could be read. The exported inflators degrade to a message and NULL.
+# `Inflate()` itself, which takes an explicit index, still errors: there an
+# empty table is a mistake.
 no_series_data <- function(index) {
   if (!is.data.table(index) || !nrow(index)) {
-    message("Index had zero rows, possibly due to a faulty or absent download, ",
+    message("Index had zero rows, possibly due to absent or faulty data, ",
             "so returning NULL.")
     return(TRUE)
   }
@@ -253,8 +252,9 @@ validate_index <- function(index, var = "index") {
   }
   if (!nrow(index)) {
     stop(errorCondition(
-      paste0("`", var, "` had zero rows. If it came from the mirrored ABS data, ",
-             "the download may have failed; see `download_data()`."),
+      paste0("`", var, "` had zero rows. If it came from the ABS data, ",
+             "the bundled file or a downloaded update may be faulty; ",
+             "see `download_data()`."),
       class = "grattanInflators_empty_index"))
   }
   if (!hasName(index, "date") || !hasName(index, "value")) {

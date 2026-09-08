@@ -85,9 +85,7 @@ jobs:
           Rdevel CMD INSTALL --install-tests ./*.tar.gz
       - name: Run tests under the sanitizers
         shell: bash
-        # The suite no longer skips itself when the mirrored ABS data is
-        # unavailable, so the instrumented C code is exercised even in this
-        # container, which has no data and may have no network. Only the
-        # files that genuinely need the ABS data skip themselves.
+        # The bundled ABS snapshot lets the complete suite run even when this
+        # minimal container has no network or pre-existing user data.
         run: |
           Rdevel -q -e "o <- tinytest::test_all('.'); print(o); if (!tinytest::all_pass(o)) q(status = 1L)"

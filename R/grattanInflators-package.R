@@ -3,7 +3,6 @@
 #' @importFrom fy fy2date
 #' @importFrom hutils samp
 #' @importFrom hutils prohibit_vector_recycling
-#' @importFrom hutils provide.file
 #' @importFrom stats complete.cases
 #' @importFrom tools R_user_dir
 #' @importFrom utils packageName

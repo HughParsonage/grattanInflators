@@ -1,12 +1,3 @@
-# This file needs the mirrored ABS data. Every other test file must run
-# without it, so that a machine with no internet access still exercises the
-# parsers, the native bounds checks and the synthetic-index arithmetic.
-# Skipping (never failing) if the data is absent or unreadable.
-if (!isFALSE(tryCatch(grattanInflators::grattanInflators_has_no_data(),
-                      error = function(e) TRUE))) {
-  exit_file("No ABS data available (no internet connection?)")
-}
-
 library(tinytest)
 library(grattanInflators)
 library(data.table)
@@ -110,5 +101,4 @@ expect_equal(cpi_inflator("2071-01-01", "2072-01-01",
 expect_equal(cpi_inflator("2071-01-01", "2072-01-01",
                           series = cpi_original("10%")),
              1.1, tolerance = 1e-8)
-
 

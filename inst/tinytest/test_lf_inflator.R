@@ -1,12 +1,3 @@
-# This file needs the mirrored ABS data. Every other test file must run
-# without it, so that a machine with no internet access still exercises the
-# parsers, the native bounds checks and the synthetic-index arithmetic.
-# Skipping (never failing) if the data is absent or unreadable.
-if (!isFALSE(tryCatch(grattanInflators::grattanInflators_has_no_data(),
-                      error = function(e) TRUE))) {
-  exit_file("No ABS data available (no internet connection?)")
-}
-
 library(grattanInflators)
 
 expect_equal(round(lf_inflator("2015-16", "2016-17"), 3), 1.012, tolerance = 0.005, scale = 1)
@@ -27,5 +18,4 @@ lfi_series <- lfi_original()[date <= fast_as_idate("2024-02-03")]
 
 expect_warning(lf_inflator("2020-21", "2023-24", series = lfi_series))
 expect_message(lf_inflator("2020-21", "2023-24", series = lfi_series, check = -1L))
-
 
