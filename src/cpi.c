@@ -249,6 +249,10 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
                SEXP FromClass, SEXP ToClass,
                SEXP nthreads) {
   int nThread = as_nThread(nthreads);
+  const int freq = index_freq2int(IndexFreq);
+  if (freq != 1 && freq != 2 && freq != 4 && freq != 12) {
+    error("Index frequency was %d; only annual, half-yearly, quarterly, and monthly indices are supported.", freq);
+  }
   prohibit_vector_recyling(From, To, "from", "to");
   R_xlen_t N_from = xlength(From);
   R_xlen_t N_to = xlength(To);
@@ -303,7 +307,6 @@ SEXP C_Inflate(SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SEXP IndexFre
 
   const double * index = REAL(Index);
   const R_xlen_t index_n = xlength(Index);
-  int freq = index_freq2int(IndexFreq);
 
   SEXP2YearMonth(FromDate, From, from_class, MonthFY, false, "from", nThread);
 

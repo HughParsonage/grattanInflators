@@ -10,6 +10,16 @@
   Periods are anchored to the observation month: May to October and November to
   April for the earnings series, with the usual exact endpoint checks.
 
+### Download and validation fixes
+
+* Empty or wholly unsupported `download_data()` requests return integer
+  statuses without creating or advancing the last-update marker.
+* `grattanInflators_has_no_data()` checks for nonempty files without reading
+  their contents; selecting an index still validates snapshot freshness.
+* Inflator wrappers report invalid index classes through index validation
+  instead of treating them as missing data. The generic native inflator rejects
+  unsupported frequencies before allocating buffers or changing `x`.
+
 ### Bug fixes (memory safety)
 
 * `Inflate(x = )` no longer writes past the end of `x` when `x` is shorter than

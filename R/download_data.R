@@ -249,10 +249,12 @@ download_data <- function(series_id = NULL) {
     # do everything
     series_id <- content2series_id()
   }
-
+  if (!length(series_id)) {
+    return(integer())
+  }
 
   ans <-
-    sapply(series_id, function(sid) {
+    vapply(series_id, function(sid) {
       if (!nzchar(sid)) {
         return(NA_integer_)
       }
@@ -318,8 +320,10 @@ download_data <- function(series_id = NULL) {
       RM_SERIES(sid)
       return(0L)
       # nocov end
-    })
-  if (!sum(ans, na.rm = TRUE)) {
+    }, integer(1L))
+  # Empty requests and unsupported category/adjustment combinations have not
+  # retrieved anything and must not create or advance the update marker.
+  if (any(ans == 0L, na.rm = TRUE) && !any(ans > 0L, na.rm = TRUE)) {
     saveRDS(Sys.Date(), date_last_updated.rds())
   }
   ans
@@ -344,7 +348,14 @@ when_last_updated <- function() {
 grattanInflators_has_no_data <- function() {
   series_id <- unique(content2series_id())
   series_id <- series_id[nzchar(series_id)]
-  !any(vapply(series_id,
-              function(sid) nzchar(available_series_id(sid)),
-              logical(1L)))
+  # This is an existence query, not a choice between competing snapshots.
+  # Avoid reading either file to compare observation coverage, and stop at
+  # the first nonempty file. Selection and validation still happen on use.
+  for (sid in series_id) {
+    if (isTRUE(file.size(bundled_series_id(sid)) > 0L) ||
+        isTRUE(file.size(extdata_series_id(sid)) > 0L)) {
+      return(FALSE)
+    }
+  }
+  TRUE
 }

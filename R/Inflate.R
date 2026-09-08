@@ -235,7 +235,7 @@ validate_fy_month <- function(fy_month) {
 # `Inflate()` itself, which takes an explicit index, still errors: there an
 # empty table is a mistake.
 no_series_data <- function(index) {
-  if (!is.data.table(index) || !nrow(index)) {
+  if (is.data.table(index) && !nrow(index)) {
     message("Index had zero rows, possibly due to absent or faulty data, ",
             "so returning NULL.")
     return(TRUE)
