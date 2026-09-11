@@ -21,8 +21,8 @@ static inline bool idate_index_position(R_xlen_t * position,
     }
     offset = quarter - first_quarter;
   } else {
-    // Monthly indices use exact months. Annual indices can be anchored in any
-    // month, so their year changes at that anchor rather than in January.
+    // Monthly indices use exact months. Annual and half-yearly indices are
+    // anchored to the first observation's month.
     if (month < index_first_month) {
       return false;
     }
@@ -76,8 +76,8 @@ SEXP C_Inflate2(SEXP ans, SEXP From, SEXP To, SEXP Index, SEXP IndexMinIDate, SE
     error("The first index date is outside the supported date range."); // # nocov
   }
   const int freq = asInteger(IndexFreq);
-  if (freq != 1 && freq != 4 && freq != 12) {
-    error("Index frequency was %d; only annual, quarterly, and monthly indices are supported.", freq); // # nocov
+  if (freq != 1 && freq != 2 && freq != 4 && freq != 12) {
+    error("Index frequency was %d; only annual, half-yearly, quarterly, and monthly indices are supported.", freq); // # nocov
   }
   const unsigned int months_per_period = 12 / freq;
   const unsigned int index_first_month = p_search(index_min);
@@ -228,5 +228,4 @@ SEXP C_coalesce_forecast_12mo_avg(SEXP ans, SEXP From, SEXP To, SEXP Index, SEXP
   return ans;
 
 }
-
 

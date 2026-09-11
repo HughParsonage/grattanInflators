@@ -9,7 +9,8 @@ dr2index(index, d1, r1, ...)
 }
 \arguments{
 \item{index}{An index (i.e. a data.table with columns \code{date} and \code{value},
-where \code{date} is an arithmetic sequence of monthly, quarterly, or annual dates),
+where \code{date} is a regular sequence of monthly, quarterly, half-yearly,
+or annual dates),
 and \code{value} is the indexed value for that date.}
 
 \item{d1}{A single date or value representing a date.}

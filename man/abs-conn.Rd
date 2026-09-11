@@ -9,7 +9,7 @@
 \title{ABS Connections}
 \usage{
 content2series_id(
-  broad_cat = c("cpi", "lfi", "wpi"),
+  broad_cat = c("cpi", "lfi", "wpi", "awe", "awote"),
   adjustment = c("original", "seasonal", "trend", "trimmed-mean", "monthly-original",
     "monthly-seasonal", "monthly-excl-volatile")
 )

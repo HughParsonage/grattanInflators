@@ -3,6 +3,28 @@ grattanInflators
 
 Utility package for CPI and other inflators.
 
+### Average weekly earnings
+
+`awe_inflator()` uses all employees' average weekly total earnings;
+`awote_inflator()` uses full-time adults' average weekly ordinary time earnings.
+Both cover persons, Australia. Original, seasonally adjusted and trend data are
+available through `awe_original()`, `awe_seasonal()`, `awe_trend()` and the
+corresponding `awote_*()` functions.
+
+```r
+awe <- awe_original()  # date and value (dollars per week)
+awote_inflator("2024-05-15", "2025-05-15")
+awe_inflator("2024-05-15", "2025-05-15", series = awe_seasonal())
+awote_inflator("2030-05-15", "2031-05-15", series = awote_original("3%"))
+```
+
+The [ABS May 2026 release](https://www.abs.gov.au/statistics/labour/earnings-and-working-conditions/average-weekly-earnings-australia/may-2026)
+is bundled for offline use; `download_data()` refreshes it through the package's
+ABS mirror. Original series begin in November 1994; adjusted and trend series
+begin in May 2012. Inflators use May observations for May to October and November
+observations for November to April, with the usual endpoint checks. Earnings
+changes include workforce composition effects; `wage_inflator()` uses the WPI.
+
 ### Benchmarks
 
 ``` r
